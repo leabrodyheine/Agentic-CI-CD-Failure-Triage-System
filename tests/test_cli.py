@@ -78,3 +78,62 @@ def test_run_one_unknown_job_id_errors(monkeypatch, runner):
 
     assert result.exit_code != 0
     assert "404" in result.output
+
+
+def test_eval_cmd_prints_formatted_report(monkeypatch, runner, tmp_path):
+    import triage_agent.eval_harness as eval_harness
+
+    eval_set_path = tmp_path / "eval_set.json"
+    eval_set_path.write_text("[]")
+
+    captured = {}
+
+    def fake_run_eval(path, client):
+        captured["path"] = path
+        return {
+            "total": 1,
+            "accuracy": 1.0,
+            "flake_vs_real_accuracy": 1.0,
+            "confusion": {},
+            "misclassified": [],
+        }
+
+    monkeypatch.setattr(eval_harness, "run_eval", fake_run_eval)
+
+    result = runner.invoke(cli.main, ["eval", "--eval-set", str(eval_set_path)])
+
+    assert result.exit_code == 0
+    assert "Accuracy (exact):       100.0%" in result.output
+    assert captured["path"] == eval_set_path
+
+
+def test_eval_cmd_defaults_to_bundled_eval_set(monkeypatch, runner):
+    import triage_agent.eval_harness as eval_harness
+
+    captured = {}
+
+    def fake_run_eval(path, client):
+        captured["path"] = path
+        return {
+            "total": 0,
+            "accuracy": 0.0,
+            "flake_vs_real_accuracy": 0.0,
+            "confusion": {},
+            "misclassified": [],
+        }
+
+    monkeypatch.setattr(eval_harness, "run_eval", fake_run_eval)
+
+    result = runner.invoke(cli.main, ["eval"])
+
+    assert result.exit_code == 0
+    assert captured["path"] == eval_harness.DEFAULT_EVAL_SET_PATH
+
+
+def test_eval_cmd_missing_config_raises_clean_error(monkeypatch, runner):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    result = runner.invoke(cli.main, ["eval"])
+
+    assert result.exit_code != 0
+    assert "ANTHROPIC_API_KEY" in result.output

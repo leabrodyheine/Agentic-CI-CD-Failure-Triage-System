@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import anthropic
 import click
@@ -80,6 +81,25 @@ def run_one(run_id: int, job_id: int):
             dry_run=settings.dry_run,
         )
     click.echo(record.model_dump_json(indent=2))
+
+
+@main.command(name="eval")
+@click.option(
+    "--eval-set",
+    "eval_set_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to a labeled eval set JSON file. Defaults to eval/eval_set.json.",
+)
+def eval_cmd(eval_set_path: Path | None):
+    """Score the classifier against a labeled eval set (see eval/eval_set.json)."""
+    from triage_agent.eval_harness import DEFAULT_EVAL_SET_PATH, format_report, run_eval
+
+    settings = _load_settings()
+    anthropic_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+    report = run_eval(eval_set_path or DEFAULT_EVAL_SET_PATH, anthropic_client)
+    click.echo(format_report(report))
 
 
 if __name__ == "__main__":

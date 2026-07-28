@@ -79,19 +79,28 @@ def run_eval(eval_set_path: Path, client: Any) -> dict[str, Any]:
     }
 
 
+def format_report(report: dict[str, Any]) -> str:
+    """Renders a run_eval() report as human-readable text, shared by the CLI and script."""
+    lines = [
+        f"Examples:               {report['total']}",
+        f"Accuracy (exact):       {report['accuracy']:.1%}",
+        f"Accuracy (flake/real):  {report['flake_vs_real_accuracy']:.1%}",
+    ]
+    if report["misclassified"]:
+        lines.append("\nMisclassified:")
+        lines.extend(
+            f"  {m['id']}: expected={m['expected']} predicted={m['predicted']}"
+            for m in report["misclassified"]
+        )
+    return "\n".join(lines)
+
+
 def main() -> None:
     import anthropic
 
     eval_set_path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_EVAL_SET_PATH
     report = run_eval(eval_set_path, anthropic.Anthropic())
-
-    print(f"Examples:               {report['total']}")
-    print(f"Accuracy (exact):       {report['accuracy']:.1%}")
-    print(f"Accuracy (flake/real):  {report['flake_vs_real_accuracy']:.1%}")
-    if report["misclassified"]:
-        print("\nMisclassified:")
-        for m in report["misclassified"]:
-            print(f"  {m['id']}: expected={m['expected']} predicted={m['predicted']}")
+    print(format_report(report))
 
 
 if __name__ == "__main__":

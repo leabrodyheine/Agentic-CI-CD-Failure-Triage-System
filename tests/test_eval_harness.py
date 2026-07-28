@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from triage_agent.eval_harness import run_eval
+from triage_agent.eval_harness import format_report, run_eval
 
 
 class FakeSequentialAnthropicClient:
@@ -87,3 +87,34 @@ def test_run_eval_flake_vs_real_accuracy_ignores_real_category_confusion(eval_se
 
     assert report["accuracy"] == pytest.approx(1 / 3)
     assert report["flake_vs_real_accuracy"] == 1.0
+
+
+def test_format_report_includes_summary_lines():
+    report = {
+        "total": 3,
+        "accuracy": 1.0,
+        "flake_vs_real_accuracy": 1.0,
+        "confusion": {},
+        "misclassified": [],
+    }
+
+    text = format_report(report)
+
+    assert "Examples:               3" in text
+    assert "100.0%" in text
+    assert "Misclassified" not in text
+
+
+def test_format_report_lists_misclassifications():
+    report = {
+        "total": 2,
+        "accuracy": 0.5,
+        "flake_vs_real_accuracy": 0.5,
+        "confusion": {},
+        "misclassified": [{"id": "a", "expected": "flake", "predicted": "regression"}],
+    }
+
+    text = format_report(report)
+
+    assert "Misclassified:" in text
+    assert "a: expected=flake predicted=regression" in text

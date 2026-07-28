@@ -34,9 +34,23 @@ triage poll --once
 
 # Triage one specific currently-failing run/job (debugging or a live demo).
 triage run <run_id> <job_id>
+
+# Score the classifier against a labeled eval set (defaults to eval/eval_set.json).
+triage eval [--eval-set path/to/eval_set.json]
 ```
 
-Set `TRIAGE_DRY_RUN=true` to run the full pipeline and log the decision without filing an issue.
+Relevant env vars beyond the required three (see `.env.example` for the full list):
+
+- `TRIAGE_DRY_RUN=true` — run the full pipeline and log the decision without filing an issue.
+- `TRIAGE_MIN_CONFIDENCE_TO_FILE=0.7` — only file an issue when classification confidence meets
+  this threshold; below it, the decision is still logged, just not filed.
+- `TRIAGE_COMMENT_ON_PR=true` — also post a condensed triage summary as a PR comment when the run
+  is linked to one.
+
+A recurring failure (same repo/workflow/job/step/category) won't get a fresh issue filed every
+time it happens again — `triage` detects the existing open issue via a hidden signature marker
+and reuses its URL instead. Transient GitHub/Anthropic API errors (rate limits, 5xx) are retried
+automatically with backoff.
 
 ## Testing
 
@@ -51,6 +65,8 @@ credentials required.
 
 ```bash
 python eval/run_eval.py
+# or, equivalently:
+triage eval
 ```
 
 Scores the classifier against the labeled examples in `eval/eval_set.json` and reports accuracy,
