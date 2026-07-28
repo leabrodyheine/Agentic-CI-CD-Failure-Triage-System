@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 
@@ -22,11 +23,11 @@ class Settings:
     comment_on_pr: bool = False
 
     @classmethod
-    def from_env(cls, env: dict[str, str] | None = None) -> Settings:
-        env = env if env is not None else os.environ
+    def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
+        resolved_env: Mapping[str, str] = env if env is not None else os.environ
 
         def require(key: str) -> str:
-            value = env.get(key)
+            value = resolved_env.get(key)
             if not value:
                 raise ConfigError(f"Missing required environment variable: {key}")
             return value
@@ -39,9 +40,12 @@ class Settings:
             github_token=require("GITHUB_TOKEN"),
             github_repo=repo,
             anthropic_api_key=require("ANTHROPIC_API_KEY"),
-            poll_interval_seconds=int(env.get("POLL_INTERVAL_SECONDS", "60")),
-            db_path=env.get("TRIAGE_DB_PATH", "triage.db"),
-            dry_run=env.get("TRIAGE_DRY_RUN", "").lower() in {"1", "true", "yes"},
-            min_confidence_to_file=float(env.get("TRIAGE_MIN_CONFIDENCE_TO_FILE", "0.0")),
-            comment_on_pr=env.get("TRIAGE_COMMENT_ON_PR", "").lower() in {"1", "true", "yes"},
+            poll_interval_seconds=int(resolved_env.get("POLL_INTERVAL_SECONDS", "60")),
+            db_path=resolved_env.get("TRIAGE_DB_PATH", "triage.db"),
+            dry_run=resolved_env.get("TRIAGE_DRY_RUN", "").lower() in {"1", "true", "yes"},
+            min_confidence_to_file=float(
+                resolved_env.get("TRIAGE_MIN_CONFIDENCE_TO_FILE", "0.0")
+            ),
+            comment_on_pr=resolved_env.get("TRIAGE_COMMENT_ON_PR", "").lower()
+            in {"1", "true", "yes"},
         )
