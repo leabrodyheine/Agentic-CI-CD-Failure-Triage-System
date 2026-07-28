@@ -1,0 +1,98 @@
+"""Orchestrates the ingest -> classify -> root-cause -> file -> audit pipeline."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from triage_agent.classifier import classify_failure
+from triage_agent.config import Settings
+from triage_agent.github_client import GitHubClient, extract_failed_step_name, extract_pr_number
+from triage_agent.issue_filer import file_issue
+from triage_agent.log_parser import extract_error_excerpt
+from triage_agent.models import FailedRun, TriageRecord
+from triage_agent.root_cause import generate_root_cause
+from triage_agent.storage import TriageStorage
+
+
+def ingest_failed_job(
+    github_client: GitHubClient, repo: str, run: dict[str, Any], job: dict[str, Any]
+) -> FailedRun:
+    """Fetches the job's log and assembles a FailedRun from the raw API payloads."""
+    raw_log = github_client.fetch_job_log(job["id"])
+    excerpt = extract_error_excerpt(raw_log)
+
+    return FailedRun(
+        repo=repo,
+        run_id=run["id"],
+        job_id=job["id"],
+        workflow_name=run.get("name") or "unknown",
+        job_name=job["name"],
+        failed_step_name=extract_failed_step_name(job),
+        head_sha=run["head_sha"],
+        head_branch=run["head_branch"],
+        pr_number=extract_pr_number(run),
+        html_url=run["html_url"],
+        created_at=run["created_at"],
+        log_excerpt=excerpt,
+    )
+
+
+def triage_failed_job(
+    github_client: GitHubClient,
+    anthropic_client: Any,
+    storage: TriageStorage,
+    repo: str,
+    run: dict[str, Any],
+    job: dict[str, Any],
+    dry_run: bool = False,
+) -> TriageRecord:
+    """Runs the full pipeline for one failed job and persists the resulting record."""
+    failed_run = ingest_failed_job(github_client, repo, run, job)
+
+    classification = classify_failure(failed_run, anthropic_client)
+    hypothesis = generate_root_cause(failed_run, classification, anthropic_client)
+
+    issue_url = None
+    if not dry_run:
+        issue_url = file_issue(failed_run, classification, hypothesis, github_client)
+
+    record = TriageRecord(
+        run=failed_run,
+        classification=classification,
+        hypothesis=hypothesis,
+        issue_url=issue_url,
+        triaged_at=datetime.now(timezone.utc),
+    )
+    storage.save_record(record)
+    return record
+
+
+def poll_once(
+    settings: Settings,
+    github_client: GitHubClient,
+    anthropic_client: Any,
+    storage: TriageStorage,
+) -> list[TriageRecord]:
+    """Finds newly-failed runs/jobs not yet in the audit log and triages each of them."""
+    new_records: list[TriageRecord] = []
+
+    for run in github_client.list_failed_workflow_runs():
+        for job in github_client.list_jobs_for_run(run["id"]):
+            if job.get("conclusion") != "failure":
+                continue
+            if storage.is_run_processed(settings.github_repo, run["id"], job["id"]):
+                continue
+
+            record = triage_failed_job(
+                github_client,
+                anthropic_client,
+                storage,
+                settings.github_repo,
+                run,
+                job,
+                dry_run=settings.dry_run,
+            )
+            new_records.append(record)
+
+    return new_records
