@@ -74,10 +74,18 @@ def poll_once(
     anthropic_client: Any,
     storage: TriageStorage,
 ) -> list[TriageRecord]:
-    """Finds newly-failed runs/jobs not yet in the audit log and triages each of them."""
-    new_records: list[TriageRecord] = []
+    """Finds newly-failed runs/jobs not yet in the audit log and triages each of them.
 
-    for run in github_client.list_failed_workflow_runs():
+    Bounds the scan to runs created since the last successful poll (tracked per-repo in
+    storage), so repeated polling doesn't keep re-scanning a repo's entire failure history.
+    The cutoff is captured before fetching runs, so anything created mid-poll is simply
+    picked up again next time; is_run_processed() makes that safe to repeat.
+    """
+    new_records: list[TriageRecord] = []
+    poll_started_at = datetime.now(UTC)
+    since = storage.get_last_poll_time(settings.github_repo)
+
+    for run in github_client.list_failed_workflow_runs(created_after=since):
         for job in github_client.list_jobs_for_run(run["id"]):
             if job.get("conclusion") != "failure":
                 continue
@@ -95,4 +103,5 @@ def poll_once(
             )
             new_records.append(record)
 
+    storage.set_last_poll_time(settings.github_repo, poll_started_at)
     return new_records

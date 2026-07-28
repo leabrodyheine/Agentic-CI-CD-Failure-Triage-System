@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 import requests
@@ -66,11 +67,16 @@ class GitHubClient:
             sleep=self._sleep,
         )
 
-    def list_failed_workflow_runs(self, per_page: int = 50) -> list[dict[str, Any]]:
+    def list_failed_workflow_runs(
+        self, per_page: int = 50, created_after: datetime | None = None
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"status": "failure", "per_page": per_page}
+        if created_after is not None:
+            params["created"] = f">={created_after.isoformat()}"
         resp = self._request(
             "get",
             f"{_API_BASE}/repos/{self.repo}/actions/runs",
-            params={"status": "failure", "per_page": per_page},
+            params=params,
         )
         return resp.json()["workflow_runs"]
 

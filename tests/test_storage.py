@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from triage_agent.storage import TriageStorage
 
 
@@ -58,3 +60,34 @@ def test_persists_across_reopen(tmp_path, triage_record):
 
     with TriageStorage(db_path) as storage:
         assert len(storage.list_records()) == 1
+
+
+def test_get_last_poll_time_none_before_set(tmp_path):
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        assert storage.get_last_poll_time("octo-org/octo-repo") is None
+
+
+def test_set_and_get_last_poll_time_round_trip(tmp_path):
+    when = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        storage.set_last_poll_time("octo-org/octo-repo", when)
+
+        assert storage.get_last_poll_time("octo-org/octo-repo") == when
+
+
+def test_set_last_poll_time_overwrites_previous_value(tmp_path):
+    first = datetime(2026, 1, 1, tzinfo=UTC)
+    second = datetime(2026, 1, 2, tzinfo=UTC)
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        storage.set_last_poll_time("octo-org/octo-repo", first)
+        storage.set_last_poll_time("octo-org/octo-repo", second)
+
+        assert storage.get_last_poll_time("octo-org/octo-repo") == second
+
+
+def test_last_poll_time_is_scoped_per_repo(tmp_path):
+    when = datetime(2026, 1, 1, tzinfo=UTC)
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        storage.set_last_poll_time("octo-org/repo-a", when)
+
+        assert storage.get_last_poll_time("octo-org/repo-b") is None

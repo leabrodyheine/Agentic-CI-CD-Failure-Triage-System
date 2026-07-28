@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 import requests
 
@@ -87,6 +89,17 @@ def test_list_failed_workflow_runs(client, session):
     method, url, params = session.requests[0]
     assert method == "GET"
     assert params["status"] == "failure"
+    assert "created" not in params
+
+
+def test_list_failed_workflow_runs_with_created_after_filter(client, session):
+    session.stub_get("/actions/runs", FakeResponse({"workflow_runs": []}))
+    cutoff = datetime(2026, 1, 1, tzinfo=UTC)
+
+    client.list_failed_workflow_runs(created_after=cutoff)
+
+    _, _, params = session.requests[0]
+    assert params["created"] == ">=2026-01-01T00:00:00+00:00"
 
 
 def test_list_jobs_for_run(client, session):

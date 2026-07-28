@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from triage_agent.models import TriageRecord
@@ -20,7 +21,14 @@ CREATE TABLE IF NOT EXISTS triage_records (
     record_json TEXT NOT NULL,
     UNIQUE (repo, run_id, job_id)
 );
+
+CREATE TABLE IF NOT EXISTS agent_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
+
+_LAST_POLL_TIME_KEY_PREFIX = "last_poll_time:"
 
 
 class TriageStorage:
@@ -28,7 +36,7 @@ class TriageStorage:
 
     def __init__(self, db_path: str | Path):
         self._conn = sqlite3.connect(db_path)
-        self._conn.execute(_SCHEMA)
+        self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
     def close(self) -> None:
@@ -81,3 +89,18 @@ class TriageStorage:
             (repo, run_id, job_id),
         ).fetchone()
         return TriageRecord.model_validate_json(row[0]) if row else None
+
+    def get_last_poll_time(self, repo: str) -> datetime | None:
+        row = self._conn.execute(
+            "SELECT value FROM agent_state WHERE key = ?",
+            (_LAST_POLL_TIME_KEY_PREFIX + repo,),
+        ).fetchone()
+        return datetime.fromisoformat(row[0]) if row else None
+
+    def set_last_poll_time(self, repo: str, when: datetime) -> None:
+        self._conn.execute(
+            "INSERT INTO agent_state (key, value) VALUES (?, ?) "
+            "ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            (_LAST_POLL_TIME_KEY_PREFIX + repo, when.isoformat()),
+        )
+        self._conn.commit()

@@ -41,8 +41,10 @@ class FakeGitHubClient:
         self._jobs_by_run = jobs_by_run
         self._logs_by_job = logs_by_job
         self.filed_issues = []
+        self.created_after_calls = []
 
-    def list_failed_workflow_runs(self):
+    def list_failed_workflow_runs(self, created_after=None):
+        self.created_after_calls.append(created_after)
         return self._runs
 
     def list_jobs_for_run(self, run_id):
@@ -175,3 +177,39 @@ def test_poll_once_skips_already_processed_and_non_failed_jobs(
 
         second_pass = poll_once(settings, github_client, anthropic_client, storage)
         assert second_pass == []
+
+
+def test_poll_once_passes_no_created_after_on_first_poll(tmp_path, anthropic_client, settings):
+    github_client = FakeGitHubClient(runs=[], jobs_by_run={}, logs_by_job={})
+
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        poll_once(settings, github_client, anthropic_client, storage)
+
+        assert github_client.created_after_calls == [None]
+
+
+def test_poll_once_records_last_poll_time(tmp_path, anthropic_client, settings):
+    github_client = FakeGitHubClient(runs=[], jobs_by_run={}, logs_by_job={})
+
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        before = datetime.now(UTC)
+        poll_once(settings, github_client, anthropic_client, storage)
+        after = datetime.now(UTC)
+
+        recorded = storage.get_last_poll_time(settings.github_repo)
+        assert recorded is not None
+        assert before <= recorded <= after
+
+
+def test_poll_once_uses_recorded_last_poll_time_as_next_cutoff(
+    tmp_path, anthropic_client, settings
+):
+    github_client = FakeGitHubClient(runs=[], jobs_by_run={}, logs_by_job={})
+
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        poll_once(settings, github_client, anthropic_client, storage)
+        first_cutoff = storage.get_last_poll_time(settings.github_repo)
+
+        poll_once(settings, github_client, anthropic_client, storage)
+
+        assert github_client.created_after_calls == [None, first_cutoff]
