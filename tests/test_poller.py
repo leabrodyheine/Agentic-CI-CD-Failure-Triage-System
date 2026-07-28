@@ -62,6 +62,9 @@ class FakeGitHubClient:
         self.pr_comments.append({"pr_number": pr_number, "body": body})
         return {"html_url": f"https://github.com/octo-org/octo-repo/pull/{pr_number}#comment-1"}
 
+    def list_issues(self, labels=None, state="open"):
+        return []
+
 
 class FakeAnthropicClientMulti:
     """Routes each call to a canned tool response based on the forced tool_choice name."""

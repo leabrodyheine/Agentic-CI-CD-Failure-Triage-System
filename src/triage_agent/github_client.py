@@ -112,6 +112,15 @@ class GitHubClient:
         )
         return resp.json()
 
+    def list_issues(
+        self, labels: list[str] | None = None, state: str = "open"
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"state": state}
+        if labels:
+            params["labels"] = ",".join(labels)
+        resp = self._request("get", f"{_API_BASE}/repos/{self.repo}/issues", params=params)
+        return resp.json()
+
     def create_pr_comment(self, pr_number: int, body: str) -> dict[str, Any]:
         """Posts a comment on a pull request (GitHub treats PR comments as issue comments)."""
         resp = self._request(

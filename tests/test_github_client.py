@@ -168,6 +168,26 @@ def test_create_pr_comment_posts_to_issue_comments_endpoint(client, session):
     assert payload == {"body": "Looks like a flake."}
 
 
+def test_list_issues_defaults_to_open_state(client, session):
+    session.stub_get("/issues", FakeResponse([{"id": 1}, {"id": 2}]))
+
+    issues = client.list_issues()
+
+    assert [i["id"] for i in issues] == [1, 2]
+    _, _, params = session.requests[0]
+    assert params["state"] == "open"
+    assert "labels" not in params
+
+
+def test_list_issues_joins_labels(client, session):
+    session.stub_get("/issues", FakeResponse([]))
+
+    client.list_issues(labels=["triage-agent", "flake"])
+
+    _, _, params = session.requests[0]
+    assert params["labels"] == "triage-agent,flake"
+
+
 def test_extract_failed_step_name_finds_failing_step():
     job = {
         "steps": [

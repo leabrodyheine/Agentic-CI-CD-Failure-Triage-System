@@ -2,10 +2,32 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from triage_agent.github_client import GitHubClient
 from triage_agent.models import FailedRun, FailureClassification, RootCauseHypothesis
 
 _DEFAULT_LABEL = "triage-agent"
+_SIGNATURE_COMMENT_TEMPLATE = "<!-- triage-agent-signature: {signature} -->"
+
+
+def build_failure_signature(run: FailedRun, classification: FailureClassification) -> str:
+    """A stable identifier for "this same failure recurring", independent of run/job id.
+
+    Based on the repo, workflow, job, failed step, and category - deliberately not the log
+    excerpt or commit, so the same recurring failure across multiple runs maps to one
+    signature and doesn't get a fresh issue filed every time it happens again.
+    """
+    raw = "|".join(
+        [
+            run.repo,
+            run.workflow_name,
+            run.job_name,
+            run.failed_step_name or "",
+            classification.category.value,
+        ]
+    )
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 def build_issue_title(run: FailedRun, classification: FailureClassification) -> str:
@@ -24,8 +46,12 @@ def build_issue_body(
         else "_No specific log evidence cited._"
     )
     suspected_commit = hypothesis.suspected_commit_sha or "_not identified_"
+    signature_comment = _SIGNATURE_COMMENT_TEMPLATE.format(
+        signature=build_failure_signature(run, classification)
+    )
 
-    return f"""## Summary
+    return f"""{signature_comment}
+## Summary
 {hypothesis.summary}
 
 ## Classification
@@ -59,13 +85,38 @@ _Filed automatically by the CI/CD failure triage agent._
 """
 
 
+def find_duplicate_issue(
+    run: FailedRun, classification: FailureClassification, client: GitHubClient
+) -> str | None:
+    """Returns the URL of an already-open issue for this exact failure signature, if any."""
+    marker = _SIGNATURE_COMMENT_TEMPLATE.format(
+        signature=build_failure_signature(run, classification)
+    )
+    for issue in client.list_issues(labels=[_DEFAULT_LABEL]):
+        if marker in (issue.get("body") or ""):
+            return issue["html_url"]
+    return None
+
+
 def file_issue(
     run: FailedRun,
     classification: FailureClassification,
     hypothesis: RootCauseHypothesis,
     client: GitHubClient,
+    skip_if_duplicate: bool = True,
 ) -> str:
-    """Files a structured issue for this triage result and returns the issue URL."""
+    """Files a structured issue for this triage result and returns the issue URL.
+
+    If skip_if_duplicate (default), and an open issue already exists for this exact failure
+    signature (repo + workflow + job + failed step + category), returns that issue's URL
+    instead of filing a new one - keeps a recurring failure from spawning a fresh issue
+    every time it happens again.
+    """
+    if skip_if_duplicate:
+        existing_url = find_duplicate_issue(run, classification, client)
+        if existing_url is not None:
+            return existing_url
+
     title = build_issue_title(run, classification)
     body = build_issue_body(run, classification, hypothesis)
     labels = [_DEFAULT_LABEL, classification.category.value]

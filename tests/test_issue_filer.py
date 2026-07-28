@@ -1,10 +1,12 @@
 import pytest
 
 from triage_agent.issue_filer import (
+    build_failure_signature,
     build_issue_body,
     build_issue_title,
     build_pr_comment_body,
     file_issue,
+    find_duplicate_issue,
     post_pr_comment,
 )
 from triage_agent.models import FailureCategory, FailureClassification, RootCauseHypothesis
@@ -60,9 +62,11 @@ def test_build_issue_body_handles_missing_evidence_and_pr(failed_run, classifica
 
 
 class FakeGitHubClient:
-    def __init__(self):
+    def __init__(self, existing_issues=None):
         self.calls = []
         self.pr_comments = []
+        self._existing_issues = existing_issues or []
+        self.list_issues_calls = []
 
     def create_issue(self, title, body, labels=None):
         self.calls.append({"title": title, "body": body, "labels": labels})
@@ -71,6 +75,10 @@ class FakeGitHubClient:
     def create_pr_comment(self, pr_number, body):
         self.pr_comments.append({"pr_number": pr_number, "body": body})
         return {"html_url": f"https://github.com/octo-org/octo-repo/pull/{pr_number}#comment-1"}
+
+    def list_issues(self, labels=None, state="open"):
+        self.list_issues_calls.append({"labels": labels, "state": state})
+        return self._existing_issues
 
 
 def test_file_issue_creates_issue_with_expected_labels(failed_run, classification, hypothesis):
@@ -122,3 +130,84 @@ def test_post_pr_comment_returns_none_when_no_pr(failed_run, classification, hyp
 
     assert url is None
     assert client.pr_comments == []
+
+
+def test_build_failure_signature_is_stable_for_same_inputs(failed_run, classification):
+    assert build_failure_signature(failed_run, classification) == build_failure_signature(
+        failed_run, classification
+    )
+
+
+def test_build_failure_signature_differs_by_category(failed_run, classification):
+    other = classification.model_copy(update={"category": FailureCategory.FLAKE})
+
+    assert build_failure_signature(failed_run, classification) != build_failure_signature(
+        failed_run, other
+    )
+
+
+def test_build_failure_signature_differs_by_job(failed_run, classification):
+    other_run = failed_run.model_copy(update={"job_name": "other-job"})
+
+    assert build_failure_signature(failed_run, classification) != build_failure_signature(
+        other_run, classification
+    )
+
+
+def test_build_issue_body_embeds_signature_marker(failed_run, classification, hypothesis):
+    body = build_issue_body(failed_run, classification, hypothesis)
+    signature = build_failure_signature(failed_run, classification)
+
+    assert f"<!-- triage-agent-signature: {signature} -->" in body
+
+
+def test_find_duplicate_issue_returns_none_when_no_match(failed_run, classification):
+    client = FakeGitHubClient(existing_issues=[{"html_url": "x", "body": "unrelated"}])
+
+    assert find_duplicate_issue(failed_run, classification, client) is None
+    assert client.list_issues_calls[0]["labels"] == ["triage-agent"]
+
+
+def test_find_duplicate_issue_finds_matching_signature(failed_run, classification):
+    signature = build_failure_signature(failed_run, classification)
+    existing = {
+        "html_url": "https://github.com/octo-org/octo-repo/issues/3",
+        "body": f"...\n<!-- triage-agent-signature: {signature} -->\n...",
+    }
+    client = FakeGitHubClient(existing_issues=[existing])
+
+    result = find_duplicate_issue(failed_run, classification, client)
+
+    assert result == "https://github.com/octo-org/octo-repo/issues/3"
+
+
+def test_file_issue_returns_existing_url_instead_of_filing_when_duplicate(
+    failed_run, classification, hypothesis
+):
+    signature = build_failure_signature(failed_run, classification)
+    existing = {
+        "html_url": "https://github.com/octo-org/octo-repo/issues/3",
+        "body": f"<!-- triage-agent-signature: {signature} -->",
+    }
+    client = FakeGitHubClient(existing_issues=[existing])
+
+    url = file_issue(failed_run, classification, hypothesis, client)
+
+    assert url == "https://github.com/octo-org/octo-repo/issues/3"
+    assert client.calls == []
+
+
+def test_file_issue_files_new_issue_when_skip_if_duplicate_is_false(
+    failed_run, classification, hypothesis
+):
+    signature = build_failure_signature(failed_run, classification)
+    existing = {
+        "html_url": "https://github.com/octo-org/octo-repo/issues/3",
+        "body": f"<!-- triage-agent-signature: {signature} -->",
+    }
+    client = FakeGitHubClient(existing_issues=[existing])
+
+    url = file_issue(failed_run, classification, hypothesis, client, skip_if_duplicate=False)
+
+    assert url == "https://github.com/octo-org/octo-repo/issues/7"
+    assert len(client.calls) == 1
