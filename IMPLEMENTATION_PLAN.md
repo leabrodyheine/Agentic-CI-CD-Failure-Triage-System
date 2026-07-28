@@ -4,6 +4,7 @@ This plan fills in Section 4 (System Architecture) of [DESIGN.md](DESIGN.md), wh
 without content, and breaks the build into small, independently-committable increments.
 
 Decisions made to unblock implementation (confirmed with the project owner):
+
 - **Trigger:** polling script against the GitHub Actions REST API (no hosted webhook endpoint).
 - **Language:** Python 3.11+.
 - **LLM:** Anthropic Claude (Messages API), used directly (no provider abstraction for v1).
@@ -61,52 +62,42 @@ pyproject.toml
 .env.example
 src/triage_agent/
   __init__.py
-  config.py          # env-var driven settings (tokens, repo, poll interval, dry-run)
-  models.py           # pydantic models: FailureClassification, RootCauseHypothesis, TriageRecord
-  storage.py           # SQLite audit log (processed runs, decisions, filed issue links)
-  github_client.py     # list failed runs, fetch/extract logs, create issues
-  log_parser.py         # extract the failing step's relevant excerpt from raw logs
-  classifier.py          # Claude call: classify failure type + confidence
-  root_cause.py           # Claude call: root-cause hypothesis + evidence
-  issue_filer.py           # builds issue body from records, files via github_client
-  poller.py                 # orchestrates the pipeline per new failed run
-  cli.py                     # `triage poll|run|eval` entrypoints
+  config.py            # env-var driven settings (tokens, repo, poll interval, dry-run, ...)
+  models.py             # pydantic models: FailureClassification, RootCauseHypothesis, TriageRecord
+  storage.py             # SQLite audit log (processed runs, decisions, filed issue links, last-poll-time)
+  retry.py                # generic retry-with-backoff helper
+  github_client.py         # list failed runs, fetch/extract logs, create issues/PR comments, list issues
+  anthropic_utils.py        # retries transient Anthropic API errors around messages.create()
+  log_parser.py               # extract the failing step's relevant excerpt from raw logs
+  classifier.py                 # Claude call: classify failure type + confidence
+  root_cause.py                  # Claude call: root-cause hypothesis + evidence
+  issue_filer.py                   # issue/PR-comment bodies, duplicate detection, filing
+  poller.py                         # orchestrates the pipeline per new failed run
+  eval_harness.py                    # scores the classifier against a labeled eval set
+  cli.py                               # `triage poll|run|eval` entrypoints
   prompts/
     classify.md
     root_cause.md
 eval/
   eval_set.json        # labeled historical failures (schema + seed examples)
-  run_eval.py            # computes classification accuracy / false-positive rate
-tests/
-  test_log_parser.py
-  test_storage.py
-  test_classifier.py
-  test_root_cause.py
-  test_issue_filer.py
-  test_poller.py
-.github/workflows/ci.yml   # lint + pytest on push
+  run_eval.py            # thin script wrapping eval_harness.main()
+tests/                   # one test module per src module, all against fakes/mocks
+.github/workflows/
+  ci.yml                # lint (ruff) + type check (mypy) + pytest on push/PR
+  triage.yml             # scheduled `triage poll --once` against the repo itself
 ```
 
-## Commit plan
+## Beyond v1
 
-Small, buildable increments, roughly in dependency order:
+Implemented after the initial build, per DESIGN.md's spirit of iterating past a bare wrapper:
+retries with backoff on transient GitHub/Anthropic errors, log-fetch capping, a date-bounded
+polling window, per-stage timing on every TriageRecord (the metric DESIGN.md's success criteria
+actually need), a confidence threshold gating issue filing, PR-comment posting as an alternative
+to issues, duplicate-issue detection via a hidden signature marker, an eval CLI subcommand, mypy,
+and the scheduled workflow that actually invokes the CLI.
 
-1. Add this implementation plan doc.
-2. Scaffold Python package (`pyproject.toml`, `src/triage_agent/__init__.py`, `.gitignore`).
-3. Add `config.py` — env-var settings (GitHub token, repo, Anthropic key, poll interval, dry-run).
-4. Add `models.py` — pydantic models for classification, hypothesis, and triage records.
-5. Add `storage.py` — SQLite audit log (schema + read/write) with tests.
-6. Add `github_client.py` — list failed workflow runs, fetch/extract job logs, create issues (unit-tested against a mocked API).
-7. Add `log_parser.py` — extract the failing step's relevant excerpt from raw logs, with tests.
-8. Add classification prompt + `classifier.py` (Claude call, structured output), with tests against a mocked client.
-9. Add root-cause prompt + `root_cause.py` (Claude call, structured output), with tests.
-10. Add `issue_filer.py` — builds the structured issue Markdown and files it, with tests.
-11. Add `poller.py` — orchestrates ingestion → classify → root-cause → file → audit-log per run, with tests.
-12. Add `cli.py` — `triage poll` / `triage run` / `triage eval` commands.
-13. Add `eval/eval_set.json` schema + seed examples and `eval/run_eval.py` metrics script.
-14. Add `.env.example` and expand `README.md` with setup/usage instructions.
-15. Add `.github/workflows/ci.yml` to lint and test the project itself on push.
+Still open, per the earlier gap analysis:
 
-Each commit leaves the repo in a working state (imports resolve, tests pass for what exists so
-far). LLM- and GitHub-API-touching code is unit-tested against mocks/fakes — no network calls in
-the test suite.
+- `eval/eval_set.json` has 6 hand-written examples, not the 50-100 real labeled failures DESIGN.md
+  calls for.
+- No PR-comment de-duplication analogous to the issue-filing one.
