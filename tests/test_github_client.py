@@ -1,4 +1,5 @@
 import pytest
+import requests
 
 from triage_agent.github_client import (
     GitHubClient,
@@ -22,23 +23,35 @@ class FakeResponse:
 
 
 class FakeSession:
+    """Stubs GET/POST by URL suffix. A list of responses is consumed in order (useful for
+    simulating a transient failure followed by success); the last response repeats once
+    exhausted. A `raises` queue can be stubbed instead to simulate connection errors."""
+
     def __init__(self):
         self.headers = {}
         self.requests: list[tuple[str, str, dict]] = []
-        self._get_responses: dict[str, FakeResponse] = {}
+        self._get_responses: dict[str, list] = {}
         self._post_response: FakeResponse | None = None
 
-    def stub_get(self, url_suffix: str, response: FakeResponse):
-        self._get_responses[url_suffix] = response
+    def stub_get(self, url_suffix: str, response_or_responses):
+        responses = (
+            list(response_or_responses)
+            if isinstance(response_or_responses, list)
+            else [response_or_responses]
+        )
+        self._get_responses[url_suffix] = responses
 
     def stub_post(self, response: FakeResponse):
         self._post_response = response
 
     def get(self, url, params=None, **kwargs):
         self.requests.append(("GET", url, params or {}))
-        for suffix, response in self._get_responses.items():
+        for suffix, responses in self._get_responses.items():
             if url.endswith(suffix):
-                return response
+                item = responses.pop(0) if len(responses) > 1 else responses[0]
+                if isinstance(item, Exception):
+                    raise item
+                return item
         raise AssertionError(f"unstubbed GET {url}")
 
     def post(self, url, json=None, **kwargs):
@@ -53,7 +66,9 @@ def session():
 
 @pytest.fixture
 def client(session):
-    return GitHubClient(token="tok", repo="octo-org/octo-repo", session=session)
+    return GitHubClient(
+        token="tok", repo="octo-org/octo-repo", session=session, sleep=lambda s: None
+    )
 
 
 def test_sets_auth_headers(session):
@@ -123,3 +138,58 @@ def test_extract_pr_number_present():
 def test_extract_pr_number_absent():
     assert extract_pr_number({"pull_requests": []}) is None
     assert extract_pr_number({}) is None
+
+
+def test_retries_on_503_then_succeeds(client, session):
+    session.stub_get(
+        "/actions/runs",
+        [
+            FakeResponse({}, status_code=503),
+            FakeResponse({}, status_code=503),
+            FakeResponse({"workflow_runs": [{"id": 1}]}),
+        ],
+    )
+
+    runs = client.list_failed_workflow_runs()
+
+    assert [r["id"] for r in runs] == [1]
+    assert len(session.requests) == 3
+
+
+def test_retries_on_connection_error_then_succeeds(client, session):
+    session.stub_get(
+        "/actions/runs",
+        [
+            requests.ConnectionError("boom"),
+            FakeResponse({"workflow_runs": [{"id": 1}]}),
+        ],
+    )
+
+    runs = client.list_failed_workflow_runs()
+
+    assert [r["id"] for r in runs] == [1]
+
+
+def test_does_not_retry_on_404(client, session):
+    session.stub_get("/actions/runs", FakeResponse({}, status_code=404))
+
+    with pytest.raises(RuntimeError, match="404"):
+        client.list_failed_workflow_runs()
+
+    assert len(session.requests) == 1
+
+
+def test_gives_up_after_max_retry_attempts(session):
+    client = GitHubClient(
+        token="tok",
+        repo="octo-org/octo-repo",
+        session=session,
+        max_retry_attempts=2,
+        sleep=lambda s: None,
+    )
+    session.stub_get("/actions/runs", [FakeResponse({}, status_code=503)] * 5)
+
+    with pytest.raises(Exception, match="failed after 2 attempts"):
+        client.list_failed_workflow_runs()
+
+    assert len(session.requests) == 2
