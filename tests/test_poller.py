@@ -170,6 +170,47 @@ def test_triage_failed_job_dry_run_skips_filing(tmp_path, anthropic_client):
         assert storage.is_run_processed("octo-org/octo-repo", 1, 2)
 
 
+def test_triage_failed_job_skips_filing_below_confidence_threshold(tmp_path, anthropic_client):
+    # anthropic_client fixture classifies with confidence=0.6.
+    github_client = FakeGitHubClient(
+        runs=[], jobs_by_run={}, logs_by_job={2: "##[error]boom"}
+    )
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        record = triage_failed_job(
+            github_client,
+            anthropic_client,
+            storage,
+            "octo-org/octo-repo",
+            _run(),
+            _job(),
+            min_confidence_to_file=0.9,
+        )
+
+        assert record.issue_url is None
+        assert github_client.filed_issues == []
+        assert storage.is_run_processed("octo-org/octo-repo", 1, 2)
+
+
+def test_triage_failed_job_files_when_confidence_meets_threshold(tmp_path, anthropic_client):
+    # anthropic_client fixture classifies with confidence=0.6.
+    github_client = FakeGitHubClient(
+        runs=[], jobs_by_run={}, logs_by_job={2: "##[error]boom"}
+    )
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        record = triage_failed_job(
+            github_client,
+            anthropic_client,
+            storage,
+            "octo-org/octo-repo",
+            _run(),
+            _job(),
+            min_confidence_to_file=0.5,
+        )
+
+        assert record.issue_url is not None
+        assert len(github_client.filed_issues) == 1
+
+
 def test_poll_once_skips_already_processed_and_non_failed_jobs(
     tmp_path, anthropic_client, settings
 ):

@@ -18,6 +18,7 @@ class Settings:
     poll_interval_seconds: int = 60
     db_path: str = "triage.db"
     dry_run: bool = False
+    min_confidence_to_file: float = 0.0
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Settings:
@@ -40,4 +41,5 @@ class Settings:
             poll_interval_seconds=int(env.get("POLL_INTERVAL_SECONDS", "60")),
             db_path=env.get("TRIAGE_DB_PATH", "triage.db"),
             dry_run=env.get("TRIAGE_DRY_RUN", "").lower() in {"1", "true", "yes"},
+            min_confidence_to_file=float(env.get("TRIAGE_MIN_CONFIDENCE_TO_FILE", "0.0")),
         )

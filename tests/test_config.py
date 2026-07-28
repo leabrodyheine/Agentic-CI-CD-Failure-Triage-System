@@ -27,16 +27,23 @@ def test_from_env_applies_defaults():
     assert settings.poll_interval_seconds == 60
     assert settings.db_path == "triage.db"
     assert settings.dry_run is False
+    assert settings.min_confidence_to_file == 0.0
 
 
 def test_from_env_parses_overrides():
     settings = Settings.from_env(
-        _env(POLL_INTERVAL_SECONDS="30", TRIAGE_DB_PATH="/tmp/x.db", TRIAGE_DRY_RUN="true")
+        _env(
+            POLL_INTERVAL_SECONDS="30",
+            TRIAGE_DB_PATH="/tmp/x.db",
+            TRIAGE_DRY_RUN="true",
+            TRIAGE_MIN_CONFIDENCE_TO_FILE="0.5",
+        )
     )
 
     assert settings.poll_interval_seconds == 30
     assert settings.db_path == "/tmp/x.db"
     assert settings.dry_run is True
+    assert settings.min_confidence_to_file == 0.5
 
 
 def test_from_env_missing_required_raises():

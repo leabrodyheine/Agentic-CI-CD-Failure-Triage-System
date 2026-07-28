@@ -56,8 +56,14 @@ def triage_failed_job(
     run: dict[str, Any],
     job: dict[str, Any],
     dry_run: bool = False,
+    min_confidence_to_file: float = 0.0,
 ) -> TriageRecord:
-    """Runs the full pipeline for one failed job and persists the resulting record."""
+    """Runs the full pipeline for one failed job and persists the resulting record.
+
+    The issue is only filed if classification confidence meets min_confidence_to_file;
+    below that, the pipeline still runs and the decision is still logged, just not filed,
+    to avoid spamming issues for low-confidence guesses.
+    """
     failed_run, ingest_seconds = _timed(lambda: ingest_failed_job(github_client, repo, run, job))
 
     classification, classify_seconds = _timed(
@@ -69,7 +75,7 @@ def triage_failed_job(
 
     issue_url = None
     file_issue_seconds = 0.0
-    if not dry_run:
+    if not dry_run and classification.confidence >= min_confidence_to_file:
         issue_url, file_issue_seconds = _timed(
             lambda: file_issue(failed_run, classification, hypothesis, github_client)
         )
@@ -123,6 +129,7 @@ def poll_once(
                 run,
                 job,
                 dry_run=settings.dry_run,
+                min_confidence_to_file=settings.min_confidence_to_file,
             )
             new_records.append(record)
 
