@@ -21,6 +21,7 @@ class Settings:
     dry_run: bool = False
     min_confidence_to_file: float = 0.0
     comment_on_pr: bool = False
+    log_level: str = "INFO"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -48,4 +49,5 @@ class Settings:
             ),
             comment_on_pr=resolved_env.get("TRIAGE_COMMENT_ON_PR", "").lower()
             in {"1", "true", "yes"},
+            log_level=resolved_env.get("TRIAGE_LOG_LEVEL", "INFO"),
         )

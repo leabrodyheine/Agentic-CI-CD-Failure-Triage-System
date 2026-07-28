@@ -10,15 +10,18 @@ import click
 
 from triage_agent.config import ConfigError, Settings
 from triage_agent.github_client import GitHubClient
+from triage_agent.logging_config import configure_logging
 from triage_agent.poller import poll_once, triage_failed_job
 from triage_agent.storage import TriageStorage
 
 
 def _load_settings() -> Settings:
     try:
-        return Settings.from_env()
+        settings = Settings.from_env()
     except ConfigError as exc:
         raise click.ClickException(str(exc))
+    configure_logging(settings.log_level)
+    return settings
 
 
 def _build_clients(settings: Settings) -> tuple[GitHubClient, anthropic.Anthropic]:

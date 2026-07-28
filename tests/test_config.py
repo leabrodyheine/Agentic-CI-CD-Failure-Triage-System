@@ -29,6 +29,7 @@ def test_from_env_applies_defaults():
     assert settings.dry_run is False
     assert settings.min_confidence_to_file == 0.0
     assert settings.comment_on_pr is False
+    assert settings.log_level == "INFO"
 
 
 def test_from_env_parses_overrides():
@@ -39,6 +40,7 @@ def test_from_env_parses_overrides():
             TRIAGE_DRY_RUN="true",
             TRIAGE_MIN_CONFIDENCE_TO_FILE="0.5",
             TRIAGE_COMMENT_ON_PR="true",
+            TRIAGE_LOG_LEVEL="DEBUG",
         )
     )
 
@@ -47,6 +49,7 @@ def test_from_env_parses_overrides():
     assert settings.dry_run is True
     assert settings.min_confidence_to_file == 0.5
     assert settings.comment_on_pr is True
+    assert settings.log_level == "DEBUG"
 
 
 def test_from_env_missing_required_raises():
