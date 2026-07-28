@@ -34,7 +34,7 @@ class TriageStorage:
     def close(self) -> None:
         self._conn.close()
 
-    def __enter__(self) -> "TriageStorage":
+    def __enter__(self) -> TriageStorage:
         return self
 
     def __exit__(self, *exc_info) -> None:

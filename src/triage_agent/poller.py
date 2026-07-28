@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from triage_agent.classifier import classify_failure
@@ -62,7 +62,7 @@ def triage_failed_job(
         classification=classification,
         hypothesis=hypothesis,
         issue_url=issue_url,
-        triaged_at=datetime.now(timezone.utc),
+        triaged_at=datetime.now(UTC),
     )
     storage.save_record(record)
     return record

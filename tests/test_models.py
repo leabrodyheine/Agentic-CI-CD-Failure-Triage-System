@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -37,7 +37,7 @@ def test_triage_record_round_trips_through_json(failed_run):
         ),
         hypothesis=RootCauseHypothesis(summary="DNS flake", confidence=0.5),
         issue_url=None,
-        triaged_at=datetime.now(timezone.utc),
+        triaged_at=datetime.now(UTC),
     )
 
     restored = TriageRecord.model_validate_json(record.model_dump_json())

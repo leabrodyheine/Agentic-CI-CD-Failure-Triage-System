@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +34,7 @@ def _to_failed_run(example: dict[str, Any], index: int) -> FailedRun:
         head_branch=example.get("head_branch", "main"),
         pr_number=None,
         html_url="https://example.invalid/eval",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         log_excerpt=example["log_excerpt"],
     )
 

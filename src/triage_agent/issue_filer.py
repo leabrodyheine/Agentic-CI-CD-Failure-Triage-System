@@ -9,7 +9,10 @@ _DEFAULT_LABEL = "triage-agent"
 
 
 def build_issue_title(run: FailedRun, classification: FailureClassification) -> str:
-    return f"[{classification.category.value}] {run.workflow_name} / {run.job_name} failing on {run.head_branch}"
+    return (
+        f"[{classification.category.value}] {run.workflow_name} / "
+        f"{run.job_name} failing on {run.head_branch}"
+    )
 
 
 def build_issue_body(

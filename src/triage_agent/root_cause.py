@@ -73,7 +73,10 @@ def generate_root_cause(
     client: Any,
     model: str = DEFAULT_MODEL,
 ) -> RootCauseHypothesis:
-    """Generate a root-cause hypothesis using Claude. `client` is an anthropic.Anthropic instance."""
+    """Generate a root-cause hypothesis using Claude.
+
+    `client` is an anthropic.Anthropic instance.
+    """
     response = client.messages.create(
         model=model,
         max_tokens=1024,

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -23,7 +23,7 @@ def make_failed_run(**overrides) -> FailedRun:
         head_branch="main",
         pr_number=42,
         html_url="https://github.com/octo-org/octo-repo/actions/runs/1",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         log_excerpt="AssertionError: expected 1 got 2",
     )
     base.update(overrides)
@@ -38,7 +38,7 @@ def make_triage_record(**overrides) -> TriageRecord:
         ),
         hypothesis=RootCauseHypothesis(summary="DNS flake", confidence=0.5),
         issue_url=None,
-        triaged_at=datetime.now(timezone.utc),
+        triaged_at=datetime.now(UTC),
     )
     base.update(overrides)
     return TriageRecord(**base)

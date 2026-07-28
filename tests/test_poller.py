@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -14,7 +14,7 @@ def _run(run_id=1, **overrides):
         head_sha="a" * 40,
         head_branch="main",
         html_url=f"https://github.com/octo-org/octo-repo/actions/runs/{run_id}",
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
         pull_requests=[{"number": 42}],
     )
     base.update(overrides)
