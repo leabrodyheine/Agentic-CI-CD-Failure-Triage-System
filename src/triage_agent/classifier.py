@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from triage_agent.anthropic_utils import create_with_retries
 from triage_agent.models import FailedRun, FailureCategory, FailureClassification
 
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -62,10 +65,23 @@ def _extract_tool_input(response: Any, tool_name: str) -> dict[str, Any]:
 
 
 def classify_failure(
-    run: FailedRun, client: Any, model: str = DEFAULT_MODEL
+    run: FailedRun,
+    client: Any,
+    model: str = DEFAULT_MODEL,
+    max_retry_attempts: int = 3,
+    retry_base_delay: float = 0.5,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> FailureClassification:
-    """Classify a failed run using Claude. `client` is an anthropic.Anthropic instance."""
-    response = client.messages.create(
+    """Classify a failed run using Claude. `client` is an anthropic.Anthropic instance.
+
+    Transient API errors (connection issues, timeouts, rate limits, 5xx) are retried with
+    exponential backoff; see triage_agent.anthropic_utils.create_with_retries.
+    """
+    response = create_with_retries(
+        client,
+        max_attempts=max_retry_attempts,
+        base_delay=retry_base_delay,
+        sleep=sleep,
         model=model,
         max_tokens=1024,
         system=_system_prompt(),

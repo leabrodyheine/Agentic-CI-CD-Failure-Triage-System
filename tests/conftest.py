@@ -88,3 +88,30 @@ def fake_anthropic_client():
         return FakeAnthropicClient(tool_name, tool_input)
 
     return _make
+
+
+class FakeFlakyAnthropicClient:
+    """Raises the given exceptions in order, then returns a canned tool_use response."""
+
+    def __init__(self, tool_name: str, tool_input: dict, exceptions: list[Exception]):
+        self._tool_name = tool_name
+        self._tool_input = tool_input
+        self._exceptions = list(exceptions)
+        self.calls = 0
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.calls += 1
+        if self._exceptions:
+            raise self._exceptions.pop(0)
+        return FakeAnthropicResponse(
+            content=[FakeToolUseBlock(self._tool_name, self._tool_input)]
+        )
+
+
+@pytest.fixture
+def fake_flaky_anthropic_client():
+    def _make(tool_name: str, tool_input: dict, exceptions: list[Exception]):
+        return FakeFlakyAnthropicClient(tool_name, tool_input, exceptions)
+
+    return _make

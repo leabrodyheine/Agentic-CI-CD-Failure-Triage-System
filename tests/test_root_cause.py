@@ -1,7 +1,11 @@
+import anthropic
+import httpx
 import pytest
 
 from triage_agent.models import FailureCategory, FailureClassification
 from triage_agent.root_cause import generate_root_cause
+
+_REQUEST = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
 
 
 @pytest.fixture
@@ -80,3 +84,19 @@ def test_generate_root_cause_raises_when_tool_not_used(failed_run, classificatio
 
     with pytest.raises(ValueError, match="submit_root_cause"):
         generate_root_cause(failed_run, classification, NoToolClient())
+
+
+def test_generate_root_cause_retries_transient_error_then_succeeds(
+    failed_run, classification, fake_flaky_anthropic_client
+):
+    response = httpx.Response(429, request=_REQUEST)
+    client = fake_flaky_anthropic_client(
+        "submit_root_cause",
+        {"summary": "x", "evidence": [], "suspected_commit_sha": None, "confidence": 0.5},
+        [anthropic.RateLimitError("rate limited", response=response, body=None)],
+    )
+
+    result = generate_root_cause(failed_run, classification, client, sleep=lambda s: None)
+
+    assert result.summary == "x"
+    assert client.calls == 2

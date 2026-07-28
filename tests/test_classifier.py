@@ -1,7 +1,11 @@
+import anthropic
+import httpx
 import pytest
 
 from triage_agent.classifier import classify_failure
 from triage_agent.models import FailureCategory
+
+_REQUEST = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
 
 
 def test_classify_failure_returns_parsed_classification(failed_run, fake_anthropic_client):
@@ -55,3 +59,19 @@ def test_classify_failure_propagates_invalid_category(failed_run, fake_anthropic
 
     with pytest.raises(Exception):
         classify_failure(failed_run, client)
+
+
+def test_classify_failure_retries_transient_error_then_succeeds(
+    failed_run, fake_flaky_anthropic_client
+):
+    response = httpx.Response(503, request=_REQUEST)
+    client = fake_flaky_anthropic_client(
+        "submit_classification",
+        {"category": "flake", "confidence": 0.6, "reasoning": "x"},
+        [anthropic.InternalServerError("server error", response=response, body=None)],
+    )
+
+    result = classify_failure(failed_run, client, sleep=lambda s: None)
+
+    assert result.category == FailureCategory.FLAKE
+    assert client.calls == 2
