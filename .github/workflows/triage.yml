@@ -1,0 +1,43 @@
+name: Triage CI Failures
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      # The audit log (triage.db) is what makes polling idempotent - without it, every run
+      # would re-triage the same failures. Cached and restored across runs since each job
+      # gets a fresh checkout; restore-keys falls back to the most recent prior cache entry.
+      - name: Restore triage audit log
+        uses: actions/cache@v4
+        with:
+          path: triage.db
+          key: triage-db-${{ github.run_id }}
+          restore-keys: |
+            triage-db-
+
+      - name: Run triage poll
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: triage poll --once

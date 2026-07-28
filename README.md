@@ -52,6 +52,14 @@ time it happens again — `triage` detects the existing open issue via a hidden 
 and reuses its URL instead. Transient GitHub/Anthropic API errors (rate limits, 5xx) are retried
 automatically with backoff.
 
+## Running it on a schedule
+
+[.github/workflows/triage.yml](.github/workflows/triage.yml) runs `triage poll --once` every 15
+minutes via `workflow_dispatch`/`schedule`, using the default `GITHUB_TOKEN` and
+`github.repository`. To enable it on a repo: add an `ANTHROPIC_API_KEY` repository secret, then
+push the workflow file. The audit log (`triage.db`) is cached between runs via `actions/cache` so
+polling stays idempotent across the workflow's fresh checkouts.
+
 ## Testing
 
 ```bash
