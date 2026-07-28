@@ -112,6 +112,15 @@ class GitHubClient:
         )
         return resp.json()
 
+    def create_pr_comment(self, pr_number: int, body: str) -> dict[str, Any]:
+        """Posts a comment on a pull request (GitHub treats PR comments as issue comments)."""
+        resp = self._request(
+            "post",
+            f"{_API_BASE}/repos/{self.repo}/issues/{pr_number}/comments",
+            json={"body": body},
+        )
+        return resp.json()
+
 
 def extract_failed_step_name(job: dict[str, Any]) -> str | None:
     """Return the name of the first step in a job that failed, if any."""

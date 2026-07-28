@@ -156,6 +156,18 @@ def test_create_issue_posts_expected_payload(client, session):
     assert payload == {"title": "Title", "body": "Body", "labels": ["triage-agent"]}
 
 
+def test_create_pr_comment_posts_to_issue_comments_endpoint(client, session):
+    session.stub_post(FakeResponse({"html_url": "https://github.com/o/r/pull/5#comment-1"}))
+
+    result = client.create_pr_comment(5, "Looks like a flake.")
+
+    assert result["html_url"].endswith("#comment-1")
+    method, url, payload = session.requests[0]
+    assert method == "POST"
+    assert url.endswith("/issues/5/comments")
+    assert payload == {"body": "Looks like a flake."}
+
+
 def test_extract_failed_step_name_finds_failing_step():
     job = {
         "steps": [

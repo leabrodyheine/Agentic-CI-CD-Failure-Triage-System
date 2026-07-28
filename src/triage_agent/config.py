@@ -19,6 +19,7 @@ class Settings:
     db_path: str = "triage.db"
     dry_run: bool = False
     min_confidence_to_file: float = 0.0
+    comment_on_pr: bool = False
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Settings:
@@ -42,4 +43,5 @@ class Settings:
             db_path=env.get("TRIAGE_DB_PATH", "triage.db"),
             dry_run=env.get("TRIAGE_DRY_RUN", "").lower() in {"1", "true", "yes"},
             min_confidence_to_file=float(env.get("TRIAGE_MIN_CONFIDENCE_TO_FILE", "0.0")),
+            comment_on_pr=env.get("TRIAGE_COMMENT_ON_PR", "").lower() in {"1", "true", "yes"},
         )

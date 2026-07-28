@@ -28,6 +28,7 @@ def test_from_env_applies_defaults():
     assert settings.db_path == "triage.db"
     assert settings.dry_run is False
     assert settings.min_confidence_to_file == 0.0
+    assert settings.comment_on_pr is False
 
 
 def test_from_env_parses_overrides():
@@ -37,6 +38,7 @@ def test_from_env_parses_overrides():
             TRIAGE_DB_PATH="/tmp/x.db",
             TRIAGE_DRY_RUN="true",
             TRIAGE_MIN_CONFIDENCE_TO_FILE="0.5",
+            TRIAGE_COMMENT_ON_PR="true",
         )
     )
 
@@ -44,6 +46,7 @@ def test_from_env_parses_overrides():
     assert settings.db_path == "/tmp/x.db"
     assert settings.dry_run is True
     assert settings.min_confidence_to_file == 0.5
+    assert settings.comment_on_pr is True
 
 
 def test_from_env_missing_required_raises():

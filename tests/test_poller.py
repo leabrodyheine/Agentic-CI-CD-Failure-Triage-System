@@ -41,6 +41,7 @@ class FakeGitHubClient:
         self._jobs_by_run = jobs_by_run
         self._logs_by_job = logs_by_job
         self.filed_issues = []
+        self.pr_comments = []
         self.created_after_calls = []
 
     def list_failed_workflow_runs(self, created_after=None):
@@ -56,6 +57,10 @@ class FakeGitHubClient:
     def create_issue(self, title, body, labels=None):
         self.filed_issues.append({"title": title, "body": body, "labels": labels})
         return {"html_url": f"https://github.com/octo-org/octo-repo/issues/{len(self.filed_issues)}"}
+
+    def create_pr_comment(self, pr_number, body):
+        self.pr_comments.append({"pr_number": pr_number, "body": body})
+        return {"html_url": f"https://github.com/octo-org/octo-repo/pull/{pr_number}#comment-1"}
 
 
 class FakeAnthropicClientMulti:
@@ -145,6 +150,7 @@ def test_triage_failed_job_files_issue_and_saves_record(tmp_path, anthropic_clie
             "classify",
             "root_cause",
             "file_issue",
+            "pr_comment",
         }
         assert all(d >= 0 for d in record.stage_durations_seconds.values())
 
@@ -209,6 +215,59 @@ def test_triage_failed_job_files_when_confidence_meets_threshold(tmp_path, anthr
 
         assert record.issue_url is not None
         assert len(github_client.filed_issues) == 1
+
+
+def test_triage_failed_job_posts_pr_comment_when_enabled(tmp_path, anthropic_client):
+    github_client = FakeGitHubClient(
+        runs=[], jobs_by_run={}, logs_by_job={2: "##[error]boom"}
+    )
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        record = triage_failed_job(
+            github_client,
+            anthropic_client,
+            storage,
+            "octo-org/octo-repo",
+            _run(),
+            _job(),
+            comment_on_pr=True,
+        )
+
+        assert record.pr_comment_url is not None
+        assert len(github_client.pr_comments) == 1
+        assert github_client.pr_comments[0]["pr_number"] == record.run.pr_number
+
+
+def test_triage_failed_job_does_not_comment_by_default(tmp_path, anthropic_client):
+    github_client = FakeGitHubClient(
+        runs=[], jobs_by_run={}, logs_by_job={2: "##[error]boom"}
+    )
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        record = triage_failed_job(
+            github_client, anthropic_client, storage, "octo-org/octo-repo", _run(), _job()
+        )
+
+        assert record.pr_comment_url is None
+        assert github_client.pr_comments == []
+
+
+def test_triage_failed_job_does_not_comment_on_dry_run(tmp_path, anthropic_client):
+    github_client = FakeGitHubClient(
+        runs=[], jobs_by_run={}, logs_by_job={2: "##[error]boom"}
+    )
+    with TriageStorage(tmp_path / "triage.db") as storage:
+        record = triage_failed_job(
+            github_client,
+            anthropic_client,
+            storage,
+            "octo-org/octo-repo",
+            _run(),
+            _job(),
+            dry_run=True,
+            comment_on_pr=True,
+        )
+
+        assert record.pr_comment_url is None
+        assert github_client.pr_comments == []
 
 
 def test_poll_once_skips_already_processed_and_non_failed_jobs(

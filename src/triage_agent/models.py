@@ -52,6 +52,7 @@ class TriageRecord(BaseModel):
     classification: FailureClassification
     hypothesis: RootCauseHypothesis
     issue_url: str | None = None
+    pr_comment_url: str | None = None
     triaged_at: datetime
     stage_durations_seconds: dict[str, float] = Field(default_factory=dict)
 

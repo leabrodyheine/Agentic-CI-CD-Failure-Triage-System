@@ -10,7 +10,7 @@ from typing import Any, TypeVar
 from triage_agent.classifier import classify_failure
 from triage_agent.config import Settings
 from triage_agent.github_client import GitHubClient, extract_failed_step_name, extract_pr_number
-from triage_agent.issue_filer import file_issue
+from triage_agent.issue_filer import file_issue, post_pr_comment
 from triage_agent.log_parser import extract_error_excerpt
 from triage_agent.models import FailedRun, TriageRecord
 from triage_agent.root_cause import generate_root_cause
@@ -57,12 +57,14 @@ def triage_failed_job(
     job: dict[str, Any],
     dry_run: bool = False,
     min_confidence_to_file: float = 0.0,
+    comment_on_pr: bool = False,
 ) -> TriageRecord:
     """Runs the full pipeline for one failed job and persists the resulting record.
 
     The issue is only filed if classification confidence meets min_confidence_to_file;
     below that, the pipeline still runs and the decision is still logged, just not filed,
-    to avoid spamming issues for low-confidence guesses.
+    to avoid spamming issues for low-confidence guesses. If comment_on_pr is set and the run
+    is linked to a PR, a condensed summary is also posted as a PR comment.
     """
     failed_run, ingest_seconds = _timed(lambda: ingest_failed_job(github_client, repo, run, job))
 
@@ -80,17 +82,28 @@ def triage_failed_job(
             lambda: file_issue(failed_run, classification, hypothesis, github_client)
         )
 
+    pr_comment_url = None
+    pr_comment_seconds = 0.0
+    if not dry_run and comment_on_pr:
+        pr_comment_url, pr_comment_seconds = _timed(
+            lambda: post_pr_comment(
+                failed_run, classification, hypothesis, github_client, issue_url
+            )
+        )
+
     record = TriageRecord(
         run=failed_run,
         classification=classification,
         hypothesis=hypothesis,
         issue_url=issue_url,
+        pr_comment_url=pr_comment_url,
         triaged_at=datetime.now(UTC),
         stage_durations_seconds={
             "ingest": ingest_seconds,
             "classify": classify_seconds,
             "root_cause": root_cause_seconds,
             "file_issue": file_issue_seconds,
+            "pr_comment": pr_comment_seconds,
         },
     )
     storage.save_record(record)
@@ -130,6 +143,7 @@ def poll_once(
                 job,
                 dry_run=settings.dry_run,
                 min_confidence_to_file=settings.min_confidence_to_file,
+                comment_on_pr=settings.comment_on_pr,
             )
             new_records.append(record)
 

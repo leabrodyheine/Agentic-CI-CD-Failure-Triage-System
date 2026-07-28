@@ -72,3 +72,37 @@ def file_issue(
 
     result = client.create_issue(title, body, labels=labels)
     return result["html_url"]
+
+
+def build_pr_comment_body(
+    run: FailedRun,
+    classification: FailureClassification,
+    hypothesis: RootCauseHypothesis,
+    issue_url: str | None = None,
+) -> str:
+    """A condensed version of the issue body, sized for a PR comment rather than an issue."""
+    issue_line = f"\nFiled as {issue_url}." if issue_url else ""
+
+    return (
+        f"**CI failure triage: `{run.job_name}` / {run.failed_step_name or 'unknown step'}**\n\n"
+        f"- **Category:** `{classification.category.value}` "
+        f"({classification.confidence:.0%} confidence)\n"
+        f"- **Likely cause:** {hypothesis.summary}\n"
+        f"{issue_line}\n"
+        f"\n_Filed automatically by the CI/CD failure triage agent._"
+    )
+
+
+def post_pr_comment(
+    run: FailedRun,
+    classification: FailureClassification,
+    hypothesis: RootCauseHypothesis,
+    client: GitHubClient,
+    issue_url: str | None = None,
+) -> str | None:
+    """Posts a triage summary comment on the run's PR, if it has one. Returns the comment URL."""
+    if run.pr_number is None:
+        return None
+    body = build_pr_comment_body(run, classification, hypothesis, issue_url)
+    result = client.create_pr_comment(run.pr_number, body)
+    return result["html_url"]
