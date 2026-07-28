@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -9,6 +10,8 @@ from typing import Any
 
 from triage_agent.anthropic_utils import create_with_retries
 from triage_agent.models import FailedRun, FailureClassification, RootCauseHypothesis
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "claude-sonnet-5"
 
@@ -98,4 +101,12 @@ def generate_root_cause(
         messages=[{"role": "user", "content": _build_user_prompt(run, classification)}],
     )
     tool_input = _extract_tool_input(response, _TOOL_NAME)
-    return RootCauseHypothesis(**tool_input)
+    hypothesis = RootCauseHypothesis(**tool_input)
+    logger.info(
+        "root-cause hypothesis for run=%d job=%d (confidence=%.2f): %s",
+        run.run_id,
+        run.job_id,
+        hypothesis.confidence,
+        hypothesis.summary,
+    )
+    return hypothesis

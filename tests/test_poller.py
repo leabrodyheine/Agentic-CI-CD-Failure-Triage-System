@@ -200,6 +200,42 @@ def test_triage_failed_job_skips_filing_below_confidence_threshold(tmp_path, ant
         assert storage.is_run_processed("octo-org/octo-repo", 1, 2)
 
 
+def test_triage_failed_job_logs_confidence_skip_decision(tmp_path, anthropic_client, caplog):
+    github_client = FakeGitHubClient(
+        runs=[], jobs_by_run={}, logs_by_job={2: "##[error]boom"}
+    )
+    with (
+        TriageStorage(tmp_path / "triage.db") as storage,
+        caplog.at_level("INFO", logger="triage_agent.poller"),
+    ):
+        triage_failed_job(
+            github_client,
+            anthropic_client,
+            storage,
+            "octo-org/octo-repo",
+            _run(),
+            _job(),
+            min_confidence_to_file=0.9,
+        )
+
+    assert any("below threshold" in r.message for r in caplog.records)
+
+
+def test_poll_once_logs_summary(tmp_path, anthropic_client, settings, caplog):
+    github_client = FakeGitHubClient(
+        runs=[_run(run_id=1)],
+        jobs_by_run={1: [_job(job_id=2, conclusion="failure")]},
+        logs_by_job={2: "##[error]boom"},
+    )
+    with (
+        TriageStorage(tmp_path / "triage.db") as storage,
+        caplog.at_level("INFO", logger="triage_agent.poller"),
+    ):
+        poll_once(settings, github_client, anthropic_client, storage)
+
+    assert any("triaged 1 new job" in r.message for r in caplog.records)
+
+
 def test_triage_failed_job_files_when_confidence_meets_threshold(tmp_path, anthropic_client):
     # anthropic_client fixture classifies with confidence=0.6.
     github_client = FakeGitHubClient(

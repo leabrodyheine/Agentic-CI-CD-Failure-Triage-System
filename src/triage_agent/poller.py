@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -15,6 +16,8 @@ from triage_agent.log_parser import extract_error_excerpt
 from triage_agent.models import FailedRun, TriageRecord
 from triage_agent.root_cause import generate_root_cause
 from triage_agent.storage import TriageStorage
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -66,6 +69,7 @@ def triage_failed_job(
     to avoid spamming issues for low-confidence guesses. If comment_on_pr is set and the run
     is linked to a PR, a condensed summary is also posted as a PR comment.
     """
+    logger.info("triaging run=%d job=%d", run["id"], job["id"])
     failed_run, ingest_seconds = _timed(lambda: ingest_failed_job(github_client, repo, run, job))
 
     classification, classify_seconds = _timed(
@@ -77,7 +81,17 @@ def triage_failed_job(
 
     issue_url = None
     file_issue_seconds = 0.0
-    if not dry_run and classification.confidence >= min_confidence_to_file:
+    if dry_run:
+        logger.info("dry-run: not filing an issue for run=%d job=%d", run["id"], job["id"])
+    elif classification.confidence < min_confidence_to_file:
+        logger.info(
+            "skipping issue filing for run=%d job=%d: confidence %.2f below threshold %.2f",
+            run["id"],
+            job["id"],
+            classification.confidence,
+            min_confidence_to_file,
+        )
+    else:
         issue_url, file_issue_seconds = _timed(
             lambda: file_issue(failed_run, classification, hypothesis, github_client)
         )
@@ -132,6 +146,9 @@ def poll_once(
             if job.get("conclusion") != "failure":
                 continue
             if storage.is_run_processed(settings.github_repo, run["id"], job["id"]):
+                logger.debug(
+                    "skipping already-processed run=%d job=%d", run["id"], job["id"]
+                )
                 continue
 
             record = triage_failed_job(
@@ -147,5 +164,6 @@ def poll_once(
             )
             new_records.append(record)
 
+    logger.info("poll complete: triaged %d new job(s)", len(new_records))
     storage.set_last_poll_time(settings.github_repo, poll_started_at)
     return new_records

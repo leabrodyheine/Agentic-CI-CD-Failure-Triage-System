@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -9,6 +10,8 @@ from typing import Any
 
 from triage_agent.anthropic_utils import create_with_retries
 from triage_agent.models import FailedRun, FailureCategory, FailureClassification
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "claude-sonnet-5"
 
@@ -90,4 +93,12 @@ def classify_failure(
         messages=[{"role": "user", "content": _build_user_prompt(run)}],
     )
     tool_input = _extract_tool_input(response, _TOOL_NAME)
-    return FailureClassification(**tool_input)
+    classification = FailureClassification(**tool_input)
+    logger.info(
+        "classified run=%d job=%d as %s (confidence=%.2f)",
+        run.run_id,
+        run.job_id,
+        classification.category.value,
+        classification.confidence,
+    )
+    return classification

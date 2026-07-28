@@ -197,6 +197,29 @@ def test_file_issue_returns_existing_url_instead_of_filing_when_duplicate(
     assert client.calls == []
 
 
+def test_file_issue_logs_reuse_of_duplicate(failed_run, classification, hypothesis, caplog):
+    signature = build_failure_signature(failed_run, classification)
+    existing = {
+        "html_url": "https://github.com/octo-org/octo-repo/issues/3",
+        "body": f"<!-- triage-agent-signature: {signature} -->",
+    }
+    client = FakeGitHubClient(existing_issues=[existing])
+
+    with caplog.at_level("INFO", logger="triage_agent.issue_filer"):
+        file_issue(failed_run, classification, hypothesis, client)
+
+    assert any("reusing existing issue" in r.message for r in caplog.records)
+
+
+def test_file_issue_logs_new_filing(failed_run, classification, hypothesis, caplog):
+    client = FakeGitHubClient()
+
+    with caplog.at_level("INFO", logger="triage_agent.issue_filer"):
+        file_issue(failed_run, classification, hypothesis, client)
+
+    assert any("filed issue" in r.message for r in caplog.records)
+
+
 def test_file_issue_files_new_issue_when_skip_if_duplicate_is_false(
     failed_run, classification, hypothesis
 ):

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 
 from triage_agent.github_client import GitHubClient
 from triage_agent.models import FailedRun, FailureClassification, RootCauseHypothesis
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_LABEL = "triage-agent"
 _SIGNATURE_COMMENT_TEMPLATE = "<!-- triage-agent-signature: {signature} -->"
@@ -115,6 +118,12 @@ def file_issue(
     if skip_if_duplicate:
         existing_url = find_duplicate_issue(run, classification, client)
         if existing_url is not None:
+            logger.info(
+                "reusing existing issue for run=%d job=%d: %s",
+                run.run_id,
+                run.job_id,
+                existing_url,
+            )
             return existing_url
 
     title = build_issue_title(run, classification)
@@ -122,6 +131,9 @@ def file_issue(
     labels = [_DEFAULT_LABEL, classification.category.value]
 
     result = client.create_issue(title, body, labels=labels)
+    logger.info(
+        "filed issue for run=%d job=%d: %s", run.run_id, run.job_id, result["html_url"]
+    )
     return result["html_url"]
 
 
