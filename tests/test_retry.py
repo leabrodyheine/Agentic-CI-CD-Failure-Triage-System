@@ -80,3 +80,30 @@ def test_no_sleep_calls_when_first_attempt_succeeds():
     call_with_retries(lambda: "ok", sleep=lambda s: delays.append(s))
 
     assert delays == []
+
+
+def test_logs_a_warning_on_each_retry(caplog):
+    attempts = {"count": 0}
+
+    def fn():
+        attempts["count"] += 1
+        if attempts["count"] < 2:
+            raise ValueError("transient")
+        return "ok"
+
+    with caplog.at_level("WARNING", logger="triage_agent.retry"):
+        call_with_retries(fn, max_attempts=3, sleep=lambda s: None)
+
+    assert len(caplog.records) == 1
+    assert "attempt 1/3 failed" in caplog.records[0].message
+
+
+def test_logs_a_warning_on_final_giveup(caplog):
+    def fn():
+        raise ValueError("always fails")
+
+    with caplog.at_level("WARNING", logger="triage_agent.retry"), pytest.raises(RetryError):
+        call_with_retries(fn, max_attempts=2, sleep=lambda s: None)
+
+    assert len(caplog.records) == 2
+    assert "giving up" in caplog.records[-1].message

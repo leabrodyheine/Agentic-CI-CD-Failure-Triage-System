@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from typing import TypeVar
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -34,6 +37,11 @@ def call_with_retries(
         except retryable_exceptions as exc:
             last_exc = exc
             if attempt == max_attempts:
+                logger.warning("attempt %d/%d failed, giving up: %s", attempt, max_attempts, exc)
                 break
-            sleep(base_delay * (2 ** (attempt - 1)))
+            delay = base_delay * (2 ** (attempt - 1))
+            logger.warning(
+                "attempt %d/%d failed: %s; retrying in %.1fs", attempt, max_attempts, exc, delay
+            )
+            sleep(delay)
     raise RetryError(f"failed after {max_attempts} attempts") from last_exc
