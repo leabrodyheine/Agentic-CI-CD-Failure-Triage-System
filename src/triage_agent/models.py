@@ -53,3 +53,14 @@ class TriageRecord(BaseModel):
     hypothesis: RootCauseHypothesis
     issue_url: str | None = None
     triaged_at: datetime
+    stage_durations_seconds: dict[str, float] = Field(default_factory=dict)
+
+    @property
+    def total_duration_seconds(self) -> float:
+        """Sum of all recorded stage durations - the total time.
+
+        Time is measured from ingest through filing, i.e. how long this triage pass took to
+        run once it started (DESIGN.md's "time from failure to filed report" metric, minus
+        however long the run sat unprocessed before this poll picked it up).
+        """
+        return sum(self.stage_durations_seconds.values())

@@ -46,7 +46,8 @@ def poll(once: bool):
                     f"triaged run={record.run.run_id} job={record.run.job_id} "
                     f"category={record.classification.category.value} "
                     f"confidence={record.classification.confidence:.2f} "
-                    f"issue={record.issue_url or '(dry-run)'}"
+                    f"issue={record.issue_url or '(dry-run)'} "
+                    f"took={record.total_duration_seconds:.1f}s"
                 )
             if once:
                 break

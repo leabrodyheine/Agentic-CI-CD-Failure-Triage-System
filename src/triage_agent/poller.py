@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeVar
 
 from triage_agent.classifier import classify_failure
 from triage_agent.config import Settings
@@ -13,6 +15,14 @@ from triage_agent.log_parser import extract_error_excerpt
 from triage_agent.models import FailedRun, TriageRecord
 from triage_agent.root_cause import generate_root_cause
 from triage_agent.storage import TriageStorage
+
+T = TypeVar("T")
+
+
+def _timed(fn: Callable[[], T]) -> tuple[T, float]:
+    start = time.perf_counter()
+    result = fn()
+    return result, time.perf_counter() - start
 
 
 def ingest_failed_job(
@@ -48,14 +58,21 @@ def triage_failed_job(
     dry_run: bool = False,
 ) -> TriageRecord:
     """Runs the full pipeline for one failed job and persists the resulting record."""
-    failed_run = ingest_failed_job(github_client, repo, run, job)
+    failed_run, ingest_seconds = _timed(lambda: ingest_failed_job(github_client, repo, run, job))
 
-    classification = classify_failure(failed_run, anthropic_client)
-    hypothesis = generate_root_cause(failed_run, classification, anthropic_client)
+    classification, classify_seconds = _timed(
+        lambda: classify_failure(failed_run, anthropic_client)
+    )
+    hypothesis, root_cause_seconds = _timed(
+        lambda: generate_root_cause(failed_run, classification, anthropic_client)
+    )
 
     issue_url = None
+    file_issue_seconds = 0.0
     if not dry_run:
-        issue_url = file_issue(failed_run, classification, hypothesis, github_client)
+        issue_url, file_issue_seconds = _timed(
+            lambda: file_issue(failed_run, classification, hypothesis, github_client)
+        )
 
     record = TriageRecord(
         run=failed_run,
@@ -63,6 +80,12 @@ def triage_failed_job(
         hypothesis=hypothesis,
         issue_url=issue_url,
         triaged_at=datetime.now(UTC),
+        stage_durations_seconds={
+            "ingest": ingest_seconds,
+            "classify": classify_seconds,
+            "root_cause": root_cause_seconds,
+            "file_issue": file_issue_seconds,
+        },
     )
     storage.save_record(record)
     return record

@@ -140,6 +140,13 @@ def test_triage_failed_job_files_issue_and_saves_record(tmp_path, anthropic_clie
         assert record.issue_url is not None
         assert len(github_client.filed_issues) == 1
         assert storage.is_run_processed("octo-org/octo-repo", 1, 2)
+        assert set(record.stage_durations_seconds) == {
+            "ingest",
+            "classify",
+            "root_cause",
+            "file_issue",
+        }
+        assert all(d >= 0 for d in record.stage_durations_seconds.values())
 
 
 def test_triage_failed_job_dry_run_skips_filing(tmp_path, anthropic_client):
@@ -159,6 +166,7 @@ def test_triage_failed_job_dry_run_skips_filing(tmp_path, anthropic_client):
 
         assert record.issue_url is None
         assert github_client.filed_issues == []
+        assert record.stage_durations_seconds["file_issue"] == 0.0
         assert storage.is_run_processed("octo-org/octo-repo", 1, 2)
 
 
