@@ -30,6 +30,7 @@ class FakeSession:
     def __init__(self):
         self.headers = {}
         self.requests: list[tuple[str, str, dict]] = []
+        self.get_kwargs: list[dict] = []
         self._get_responses: dict[str, list] = {}
         self._post_response: FakeResponse | None = None
 
@@ -46,6 +47,7 @@ class FakeSession:
 
     def get(self, url, params=None, **kwargs):
         self.requests.append(("GET", url, params or {}))
+        self.get_kwargs.append(kwargs)
         for suffix, responses in self._get_responses.items():
             if url.endswith(suffix):
                 item = responses.pop(0) if len(responses) > 1 else responses[0]
@@ -101,6 +103,33 @@ def test_fetch_job_log_returns_raw_text(client, session):
     log = client.fetch_job_log(9)
 
     assert log == "##[error] boom"
+
+
+def test_fetch_job_log_sends_range_header_for_tail_bytes(client, session):
+    session.stub_get("/jobs/9/logs", FakeResponse({}, text="short log"))
+
+    client.fetch_job_log(9, max_bytes=1000)
+
+    assert session.get_kwargs[0]["headers"] == {"Range": "bytes=-1000"}
+
+
+def test_fetch_job_log_truncates_client_side_if_server_ignores_range(client, session):
+    full_log = "x" * 100
+    session.stub_get("/jobs/9/logs", FakeResponse({}, text=full_log))
+
+    log = client.fetch_job_log(9, max_bytes=10)
+
+    assert log == full_log[-10:]
+    assert len(log) == 10
+
+
+def test_fetch_job_log_no_cap_when_max_bytes_none(client, session):
+    session.stub_get("/jobs/9/logs", FakeResponse({}, text="x" * 100))
+
+    log = client.fetch_job_log(9, max_bytes=None)
+
+    assert len(log) == 100
+    assert session.get_kwargs[0]["headers"] is None
 
 
 def test_create_issue_posts_expected_payload(client, session):

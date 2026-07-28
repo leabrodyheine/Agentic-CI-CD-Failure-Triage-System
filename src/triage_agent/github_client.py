@@ -12,6 +12,7 @@ from triage_agent.retry import call_with_retries
 
 _API_BASE = "https://api.github.com"
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+_DEFAULT_MAX_LOG_BYTES = 500_000
 
 
 class TransientGitHubError(RuntimeError):
@@ -77,9 +78,23 @@ class GitHubClient:
         resp = self._request("get", f"{_API_BASE}/repos/{self.repo}/actions/runs/{run_id}/jobs")
         return resp.json()["jobs"]
 
-    def fetch_job_log(self, job_id: int) -> str:
-        resp = self._request("get", f"{_API_BASE}/repos/{self.repo}/actions/jobs/{job_id}/logs")
-        return resp.text
+    def fetch_job_log(self, job_id: int, max_bytes: int | None = _DEFAULT_MAX_LOG_BYTES) -> str:
+        """Fetches a job's raw log text, bounded to at most `max_bytes` of its tail.
+
+        Requests only the tail via a Range header, since GitHub's log storage generally
+        honors it; if a server ignores the header and returns the full log anyway, the
+        result is truncated client-side as a fallback. Pass max_bytes=None for no cap.
+        """
+        headers = {"Range": f"bytes=-{max_bytes}"} if max_bytes else None
+        resp = self._request(
+            "get",
+            f"{_API_BASE}/repos/{self.repo}/actions/jobs/{job_id}/logs",
+            headers=headers,
+        )
+        text = resp.text
+        if max_bytes and len(text) > max_bytes:
+            text = text[-max_bytes:]
+        return text
 
     def create_issue(
         self, title: str, body: str, labels: list[str] | None = None
