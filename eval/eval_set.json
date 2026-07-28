@@ -1,0 +1,62 @@
+[
+  {
+    "id": "eval-001",
+    "description": "Assertion failure directly tied to a changed function's return value",
+    "workflow_name": "CI",
+    "job_name": "unit-tests",
+    "failed_step_name": "Run pytest",
+    "head_branch": "feature/discount-calc",
+    "log_excerpt": "tests/test_pricing.py::test_apply_discount FAILED\nAssertionError: assert 90 == 81\n  +  where 90 = apply_discount(100, 0.1)\n##[error]Process completed with exit code 1.",
+    "expected_category": "regression"
+  },
+  {
+    "id": "eval-002",
+    "description": "Intermittent network timeout hitting an external test fixture service",
+    "workflow_name": "CI",
+    "job_name": "integration-tests",
+    "failed_step_name": "Run integration suite",
+    "head_branch": "main",
+    "log_excerpt": "requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='fixtures.internal.test', port=443): Max retries exceeded\n##[error]Process completed with exit code 1.",
+    "expected_category": "flake"
+  },
+  {
+    "id": "eval-003",
+    "description": "GitHub-hosted runner ran out of disk space mid-build",
+    "workflow_name": "CI",
+    "job_name": "build",
+    "failed_step_name": "Build Docker image",
+    "head_branch": "main",
+    "log_excerpt": "##[error]write /var/lib/docker/tmp/layer.tar: no space left on device\n##[error]Process completed with exit code 1.",
+    "expected_category": "infra_issue"
+  },
+  {
+    "id": "eval-004",
+    "description": "npm registry returned a 503 during dependency install",
+    "workflow_name": "CI",
+    "job_name": "install-deps",
+    "failed_step_name": "npm ci",
+    "head_branch": "chore/bump-deps",
+    "log_excerpt": "npm ERR! code E503\nnpm ERR! 503 Service Unavailable - GET https://registry.npmjs.org/left-pad\n##[error]Process completed with exit code 1.",
+    "expected_category": "infra_issue"
+  },
+  {
+    "id": "eval-005",
+    "description": "New edge case (empty input list) surfaces an unhandled exception unrelated to the diff",
+    "workflow_name": "CI",
+    "job_name": "unit-tests",
+    "failed_step_name": "Run pytest",
+    "head_branch": "test/add-empty-input-case",
+    "log_excerpt": "tests/test_aggregate.py::test_empty_input FAILED\nZeroDivisionError: division by zero\n  File \"src/aggregate.py\", line 42, in average\n    return total / count\n##[error]Process completed with exit code 1.",
+    "expected_category": "new_bug"
+  },
+  {
+    "id": "eval-006",
+    "description": "Test order dependency causes failure only when run after another specific test",
+    "workflow_name": "CI",
+    "job_name": "unit-tests",
+    "failed_step_name": "Run pytest",
+    "head_branch": "main",
+    "log_excerpt": "tests/test_cache.py::test_cache_miss FAILED\nAssertionError: assert cache.get('key') is None, got 'stale-value'\nNote: passes in isolation, fails only in full suite run\n##[error]Process completed with exit code 1.",
+    "expected_category": "flake"
+  }
+]
