@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import pytest
 from click.testing import CliRunner
 
 from triage_agent import cli
+from triage_agent.storage import TriageStorage
 
 
 @pytest.fixture(autouse=True)
@@ -137,3 +140,43 @@ def test_eval_cmd_missing_config_raises_clean_error(monkeypatch, runner):
 
     assert result.exit_code != 0
     assert "ANTHROPIC_API_KEY" in result.output
+
+
+def test_report_cmd_writes_html_from_audit_log(runner, tmp_path, triage_record):
+    db_path = tmp_path / "triage.db"
+    with TriageStorage(db_path) as storage:
+        storage.save_record(triage_record)
+    output_path = tmp_path / "out.html"
+
+    result = runner.invoke(
+        cli.main,
+        ["report", "--output", str(output_path)],
+        env={"TRIAGE_DB_PATH": str(db_path)},
+    )
+
+    assert result.exit_code == 0
+    assert "Wrote report for 1 record(s)" in result.output
+    content = output_path.read_text()
+    assert "<html" in content
+    assert "flake" in content
+
+
+def test_report_cmd_defaults_to_triage_report_html(runner, tmp_path):
+    db_path = tmp_path / "empty.db"
+    with TriageStorage(db_path):
+        pass
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli.main, ["report"], env={"TRIAGE_DB_PATH": str(db_path)})
+
+        assert result.exit_code == 0
+        assert Path("triage-report.html").exists()
+
+
+def test_report_cmd_missing_config_raises_clean_error(monkeypatch, runner):
+    monkeypatch.delenv("GITHUB_REPO", raising=False)
+
+    result = runner.invoke(cli.main, ["report"])
+
+    assert result.exit_code != 0
+    assert "GITHUB_REPO" in result.output

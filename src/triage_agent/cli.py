@@ -102,5 +102,32 @@ def eval_cmd(eval_set_path: Path | None):
     click.echo(format_report(report))
 
 
+@main.command(name="report")
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=Path("triage-report.html"),
+    show_default=True,
+    help="Path to write the HTML report to.",
+)
+@click.option(
+    "--limit",
+    default=500,
+    show_default=True,
+    help="Max records to include, most recent first.",
+)
+def report_cmd(output_path: Path, limit: int):
+    """Generate a static HTML report from the audit log."""
+    from triage_agent.report import write_report
+
+    settings = _load_settings()
+    with TriageStorage(settings.db_path) as storage:
+        records = storage.list_records(limit=limit)
+
+    write_report(records, output_path)
+    click.echo(f"Wrote report for {len(records)} record(s) to {output_path}")
+
+
 if __name__ == "__main__":
     main()
