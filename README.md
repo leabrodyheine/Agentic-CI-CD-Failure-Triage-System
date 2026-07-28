@@ -37,6 +37,9 @@ triage run <run_id> <job_id>
 
 # Score the classifier against a labeled eval set (defaults to eval/eval_set.json).
 triage eval [--eval-set path/to/eval_set.json]
+
+# Generate a static HTML report from the audit log (default: ./triage-report.html).
+triage report [--output path.html] [--limit 500]
 ```
 
 Relevant env vars beyond the required three (see `.env.example` for the full list):
@@ -46,11 +49,23 @@ Relevant env vars beyond the required three (see `.env.example` for the full lis
   this threshold; below it, the decision is still logged, just not filed.
 - `TRIAGE_COMMENT_ON_PR=true` — also post a condensed triage summary as a PR comment when the run
   is linked to one.
+- `TRIAGE_LOG_LEVEL=DEBUG` — controls the verbosity of the agent's decision log (see below).
 
 A recurring failure (same repo/workflow/job/step/category) won't get a fresh issue filed every
 time it happens again — `triage` detects the existing open issue via a hidden signature marker
 and reuses its URL instead. Transient GitHub/Anthropic API errors (rate limits, 5xx) are retried
 automatically with backoff.
+
+## Observability
+
+Every agent decision is logged (`triage_agent.{classifier,root_cause,issue_filer,poller,retry}`
+loggers, INFO by default): each classification and its confidence, each root-cause hypothesis,
+whether an issue was filed or an existing one reused, why an issue was skipped, and every retried
+API call. `TRIAGE_LOG_LEVEL=DEBUG` adds per-job skip decisions during polling.
+
+`triage report` turns the SQLite audit log into a self-contained HTML page (summary stats, a
+category breakdown chart, and a table of recent records with issue links) — no server, just a
+file to open in a browser.
 
 ## Running it on a schedule
 
