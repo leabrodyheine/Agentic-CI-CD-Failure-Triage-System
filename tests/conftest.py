@@ -52,3 +52,39 @@ def failed_run():
 @pytest.fixture
 def triage_record():
     return make_triage_record()
+
+
+class FakeToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.name = name
+        self.input = input
+
+
+class FakeAnthropicResponse:
+    def __init__(self, content: list):
+        self.content = content
+
+
+class FakeAnthropicClient:
+    """Stands in for anthropic.Anthropic; records calls and returns a canned tool_use response."""
+
+    def __init__(self, tool_name: str, tool_input: dict):
+        self._tool_name = tool_name
+        self._tool_input = tool_input
+        self.calls: list[dict] = []
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return FakeAnthropicResponse(
+            content=[FakeToolUseBlock(self._tool_name, self._tool_input)]
+        )
+
+
+@pytest.fixture
+def fake_anthropic_client():
+    def _make(tool_name: str, tool_input: dict) -> FakeAnthropicClient:
+        return FakeAnthropicClient(tool_name, tool_input)
+
+    return _make
