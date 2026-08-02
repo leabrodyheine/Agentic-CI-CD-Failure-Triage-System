@@ -67,13 +67,19 @@ API call. `TRIAGE_LOG_LEVEL=DEBUG` adds per-job skip decisions during polling.
 category breakdown chart, and a table of recent records with issue links) — no server, just a
 file to open in a browser.
 
-## Running it on a schedule
+## Running it in GitHub Actions
 
-[.github/workflows/triage.yml](.github/workflows/triage.yml) runs `triage poll --once` every 15
-minutes via `workflow_dispatch`/`schedule`, using the default `GITHUB_TOKEN` and
-`github.repository`. To enable it on a repo: add an `ANTHROPIC_API_KEY` repository secret, then
-push the workflow file. The audit log (`triage.db`) is cached between runs via `actions/cache` so
-polling stays idempotent across the workflow's fresh checkouts.
+[.github/workflows/triage.yml](.github/workflows/triage.yml) runs `triage poll --once` using the
+default `GITHUB_TOKEN` and `github.repository`. It's manual-only (`workflow_dispatch`) by
+default — nothing runs automatically just from pushing this file. To trigger it, go to the
+Actions tab and click "Run workflow"; it needs an `ANTHROPIC_API_KEY` repository secret to
+succeed. The audit log (`triage.db`) is cached between runs via `actions/cache` so repeated runs
+stay idempotent across the workflow's fresh checkouts.
+
+A commented-out `schedule:` trigger in the workflow file would make it run automatically (every
+15 minutes, by default) — deliberately left off. Enabling it means: it runs unattended even with
+no failures to look at, and if a run fails (e.g. a missing/expired secret), GitHub's default
+behavior is to email the repo owner/watchers about the failure.
 
 ## Testing
 

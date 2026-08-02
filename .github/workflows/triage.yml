@@ -1,9 +1,13 @@
 name: Triage CI Failures
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch:
+  # Automatic scheduling is intentionally disabled - this workflow only runs when someone
+  # manually triggers it (Actions tab -> Run workflow). Re-enable by uncommenting below, but
+  # note that a failing scheduled run will trigger GitHub's default email notifications to
+  # the repo owner/watchers.
+  # schedule:
+  #   - cron: "*/15 * * * *"
 
 permissions:
   contents: read
