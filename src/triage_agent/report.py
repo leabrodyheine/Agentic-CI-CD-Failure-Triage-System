@@ -27,7 +27,7 @@ def _escape(text: str) -> str:
 
 
 def _category_counts(records: list[TriageRecord]) -> Counter[str]:
-    return Counter(r.classification.category.value for r in records)
+    return Counter(record.classification.category.value for record in records)
 
 
 def _render_bar_chart_svg(counts: Counter[str], bar_height: int = 28, width: int = 420) -> str:
@@ -39,16 +39,18 @@ def _render_bar_chart_svg(counts: Counter[str], bar_height: int = 28, width: int
     chart_width = width - label_width
     row_gap = 8
     rows = []
-    for i, (category, count) in enumerate(sorted(counts.items(), key=lambda kv: -kv[1])):
-        y = i * (bar_height + row_gap)
-        bar_len = max(2, int((count / max_count) * chart_width))
+    for row_index, (category, count) in enumerate(
+        sorted(counts.items(), key=lambda category_count: -category_count[1])
+    ):
+        y = row_index * (bar_height + row_gap)
+        bar_width = max(2, int((count / max_count) * chart_width))
         color = _CATEGORY_COLORS.get(category, _DEFAULT_BAR_COLOR)
         rows.append(
             f'<text x="0" y="{y + bar_height * 0.7:.0f}" font-size="13" fill="currentColor">'
             f"{_escape(category)}</text>"
-            f'<rect x="{label_width}" y="{y}" width="{bar_len}" height="{bar_height}" '
+            f'<rect x="{label_width}" y="{y}" width="{bar_width}" height="{bar_height}" '
             f'rx="3" fill="{color}"/>'
-            f'<text x="{label_width + bar_len + 8}" y="{y + bar_height * 0.7:.0f}" '
+            f'<text x="{label_width + bar_width + 8}" y="{y + bar_height * 0.7:.0f}" '
             f'font-size="13" fill="currentColor">{count}</text>'
         )
     svg_height = len(counts) * (bar_height + row_gap)
