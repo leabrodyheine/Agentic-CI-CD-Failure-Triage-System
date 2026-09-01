@@ -69,11 +69,13 @@ file to open in a browser.
 
 ## Running it on a schedule
 
-[.github/workflows/triage.yml](.github/workflows/triage.yml) runs `triage poll --once` every 15
-minutes via `workflow_dispatch`/`schedule`, using the default `GITHUB_TOKEN` and
-`github.repository`. To enable it on a repo: add an `ANTHROPIC_API_KEY` repository secret, then
-push the workflow file. The audit log (`triage.db`) is cached between runs via `actions/cache` so
-polling stays idempotent across the workflow's fresh checkouts.
+[.github/workflows/triage.yml](.github/workflows/triage.yml) runs `triage poll --once` using the
+default `GITHUB_TOKEN` and `github.repository`. The 15-minute `schedule:` trigger is currently
+commented out (to stop notification emails), so the workflow only runs on manual
+`workflow_dispatch` — re-enable the `schedule:` block in the workflow file to poll automatically.
+To enable it on a repo: add an `ANTHROPIC_API_KEY` repository secret, then push the workflow file.
+The audit log (`triage.db`) is cached between runs via `actions/cache` so polling stays idempotent
+across the workflow's fresh checkouts.
 
 ## Testing
 
