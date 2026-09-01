@@ -1,11 +1,13 @@
 name: Triage CI Failures
 
-on:
-  # Automatic scheduling disabled to stop notification emails.
-  # Re-enable by uncommenting the two lines below to poll every 15 minutes.
-  # schedule:
-  #   - cron: "*/15 * * * *"
-  workflow_dispatch:
+# Disabled for this portfolio project so the triage agent cannot run or create
+# issues, pull-request comments, or workflow notifications. Re-enable by
+# restoring one or more of the triggers below.
+on: []
+# on:
+#   schedule:
+#     - cron: "*/15 * * * *"
+#   workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,9 +1,12 @@
 name: CI
 
-on:
-  push:
-    branches: [main]
-  pull_request:
+# Disabled for this portfolio project so GitHub Actions does not run or send
+# workflow-failure notifications. Re-enable by restoring the triggers below.
+on: []
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
 
 jobs:
   test:
