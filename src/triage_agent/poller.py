@@ -11,7 +11,7 @@ from typing import Any, TypeVar
 from triage_agent.classifier import classify_failure
 from triage_agent.config import Settings
 from triage_agent.github_client import GitHubClient, extract_failed_step_name, extract_pr_number
-from triage_agent.issue_filer import file_issue, post_pr_comment
+from triage_agent.issue_filer import file_issue  # post_pr_comment: PR comments disabled
 from triage_agent.log_parser import extract_error_excerpt
 from triage_agent.models import FailedRun, TriageRecord
 from triage_agent.root_cause import generate_root_cause
@@ -98,12 +98,14 @@ def triage_failed_job(
 
     pr_comment_url = None
     pr_comment_seconds = 0.0
-    if not dry_run and comment_on_pr:
-        pr_comment_url, pr_comment_seconds = _timed(
-            lambda: post_pr_comment(
-                failed_run, classification, hypothesis, github_client, issue_url
-            )
-        )
+    # PR-comment posting disabled to stop notification emails. To restore it,
+    # un-comment the block below and the post_pr_comment import above.
+    # if not dry_run and comment_on_pr:
+    #     pr_comment_url, pr_comment_seconds = _timed(
+    #         lambda: post_pr_comment(
+    #             failed_run, classification, hypothesis, github_client, issue_url
+    #         )
+    #     )
 
     record = TriageRecord(
         run=failed_run,

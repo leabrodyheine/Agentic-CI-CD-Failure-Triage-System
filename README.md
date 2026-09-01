@@ -47,8 +47,9 @@ Relevant env vars beyond the required three (see `.env.example` for the full lis
 - `TRIAGE_DRY_RUN=true` — run the full pipeline and log the decision without filing an issue.
 - `TRIAGE_MIN_CONFIDENCE_TO_FILE=0.7` — only file an issue when classification confidence meets
   this threshold; below it, the decision is still logged, just not filed.
-- `TRIAGE_COMMENT_ON_PR=true` — also post a condensed triage summary as a PR comment when the run
-  is linked to one.
+- `TRIAGE_COMMENT_ON_PR=true` — _(disabled)_ this previously also posted a condensed triage summary
+  as a PR comment; PR-comment posting is currently commented out in `poller.py` to avoid
+  notification emails.
 - `TRIAGE_LOG_LEVEL=DEBUG` — controls the verbosity of the agent's decision log (see below).
 
 A recurring failure (same repo/workflow/job/step/category) won't get a fresh issue filed every

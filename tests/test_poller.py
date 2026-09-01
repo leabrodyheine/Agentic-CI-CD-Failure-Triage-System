@@ -256,6 +256,7 @@ def test_triage_failed_job_files_when_confidence_meets_threshold(tmp_path, anthr
         assert len(github_client.filed_issues) == 1
 
 
+@pytest.mark.skip(reason="PR-comment posting disabled in poller.py to stop notification emails")
 def test_triage_failed_job_posts_pr_comment_when_enabled(tmp_path, anthropic_client):
     github_client = FakeGitHubClient(
         runs=[], jobs_by_run={}, logs_by_job={2: "##[error]boom"}
