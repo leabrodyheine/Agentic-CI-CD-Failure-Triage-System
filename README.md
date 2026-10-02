@@ -5,8 +5,9 @@ An autonomous agent that watches a GitHub Actions repo for failed runs, classifi
 cited log evidence, and files a structured GitHub issue with a confidence score — with every
 decision recorded in an auditable SQLite log.
 
-See [DESIGN.md](DESIGN.md) for the problem statement and goals, and
-[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the architecture and build plan.
+The implementation is complete for the workflow documented here. See [DESIGN.md](DESIGN.md)
+for the problem statement and design decisions, and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
+for the completed implementation record.
 
 ## Setup
 
@@ -47,9 +48,6 @@ Relevant env vars beyond the required three (see `.env.example` for the full lis
 - `TRIAGE_DRY_RUN=true` — run the full pipeline and log the decision without filing an issue.
 - `TRIAGE_MIN_CONFIDENCE_TO_FILE=0.7` — only file an issue when classification confidence meets
   this threshold; below it, the decision is still logged, just not filed.
-- `TRIAGE_COMMENT_ON_PR=true` — _(disabled)_ this previously also posted a condensed triage summary
-  as a PR comment; PR-comment posting is currently commented out in `poller.py` to avoid
-  notification emails.
 - `TRIAGE_LOG_LEVEL=DEBUG` — controls the verbosity of the agent's decision log (see below).
 
 A recurring failure (same repo/workflow/job/step/category) won't get a fresh issue filed every
@@ -71,10 +69,9 @@ file to open in a browser.
 ## Running it on a schedule
 
 [.github/workflows/triage.yml](.github/workflows/triage.yml) runs `triage poll --once` using the
-default `GITHUB_TOKEN` and `github.repository`. The 15-minute `schedule:` trigger is currently
-commented out (to stop notification emails), so the workflow only runs on manual
-`workflow_dispatch` — re-enable the `schedule:` block in the workflow file to poll automatically.
-To enable it on a repo: add an `ANTHROPIC_API_KEY` repository secret, then push the workflow file.
+default `GITHUB_TOKEN` and `github.repository`. The checked-in workflow is intentionally configured
+for manual `workflow_dispatch` runs. To operate it on a schedule, add an `ANTHROPIC_API_KEY`
+repository secret and enable the provided 15-minute `schedule:` block.
 The audit log (`triage.db`) is cached between runs via `actions/cache` so polling stays idempotent
 across the workflow's fresh checkouts.
 
