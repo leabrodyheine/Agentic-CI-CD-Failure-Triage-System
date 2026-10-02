@@ -66,12 +66,15 @@ API call. `TRIAGE_LOG_LEVEL=DEBUG` adds per-job skip decisions during polling.
 category breakdown chart, and a table of recent records with issue links) — no server, just a
 file to open in a browser.
 
-## Running it on a schedule
+## Optional GitHub Actions automation
 
-[.github/workflows/triage.yml](.github/workflows/triage.yml) runs `triage poll --once` using the
-default `GITHUB_TOKEN` and `github.repository`. The checked-in workflow is intentionally configured
-for manual `workflow_dispatch` runs. To operate it on a schedule, add an `ANTHROPIC_API_KEY`
-repository secret and enable the provided 15-minute `schedule:` block.
+The CI and triage workflows are disabled at the GitHub repository level, and their checked-in
+triggers are empty, so pushes do not create workflow runs or failure notifications. The
+[triage workflow](.github/workflows/triage.yml) is retained as an opt-in template for running
+`triage poll --once` with the default `GITHUB_TOKEN` and `github.repository`.
+
+To use it, add an `ANTHROPIC_API_KEY` repository secret, restore either the commented manual or
+15-minute schedule trigger, and explicitly re-enable the workflow in GitHub Actions.
 The audit log (`triage.db`) is cached between runs via `actions/cache` so polling stays idempotent
 across the workflow's fresh checkouts.
 
