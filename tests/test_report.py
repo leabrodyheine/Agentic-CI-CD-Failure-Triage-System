@@ -18,6 +18,12 @@ def test_render_report_includes_summary_stats(triage_record):
     assert "60%" in html  # triage_record fixture has confidence=0.6
 
 
+def test_render_report_scopes_table_headers_to_columns(triage_record):
+    html = render_report([triage_record])
+
+    assert html.count('<th scope="col">') == 6
+
+
 def test_render_report_includes_category_breakdown(triage_record):
     html = render_report([triage_record])
 

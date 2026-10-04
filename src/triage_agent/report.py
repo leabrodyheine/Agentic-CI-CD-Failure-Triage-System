@@ -159,8 +159,9 @@ def render_report(records: list[TriageRecord]) -> str:
 <h2>Recent triage records</h2>
 {truncation_note}
 <table>
-<thead><tr><th>Triaged at</th><th>Repo</th><th>Workflow / Job</th><th>Category</th>
-<th>Confidence</th><th>Issue</th></tr></thead>
+<thead><tr><th scope="col">Triaged at</th><th scope="col">Repo</th>
+<th scope="col">Workflow / Job</th><th scope="col">Category</th>
+<th scope="col">Confidence</th><th scope="col">Issue</th></tr></thead>
 <tbody>{table_rows}</tbody>
 </table>
 </section>
