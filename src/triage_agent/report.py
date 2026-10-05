@@ -156,9 +156,9 @@ def render_report(records: list[TriageRecord]) -> str:
 {chart}
 </section>
 <section>
-<h2>Recent triage records</h2>
+<h2 id="records-title">Recent triage records</h2>
 {truncation_note}
-<table>
+<table aria-labelledby="records-title">
 <thead><tr><th scope="col">Triaged at</th><th scope="col">Repo</th>
 <th scope="col">Workflow / Job</th><th scope="col">Category</th>
 <th scope="col">Confidence</th><th scope="col">Issue</th></tr></thead>

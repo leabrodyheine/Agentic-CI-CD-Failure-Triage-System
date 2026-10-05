@@ -24,6 +24,13 @@ def test_render_report_scopes_table_headers_to_columns(triage_record):
     assert html.count('<th scope="col">') == 6
 
 
+def test_render_report_labels_records_table(triage_record):
+    html = render_report([triage_record])
+
+    assert '<h2 id="records-title">Recent triage records</h2>' in html
+    assert '<table aria-labelledby="records-title">' in html
+
+
 def test_render_report_includes_category_breakdown(triage_record):
     html = render_report([triage_record])
 
