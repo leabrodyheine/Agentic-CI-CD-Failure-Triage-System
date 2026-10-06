@@ -171,4 +171,4 @@ def render_report(records: list[TriageRecord]) -> str:
 
 
 def write_report(records: list[TriageRecord], output_path: str | Path) -> None:
-    Path(output_path).write_text(render_report(records))
+    Path(output_path).write_text(render_report(records), encoding="utf-8")
