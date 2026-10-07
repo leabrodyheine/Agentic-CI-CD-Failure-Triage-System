@@ -39,9 +39,8 @@ def _render_bar_chart_svg(counts: Counter[str], bar_height: int = 28, width: int
     chart_width = width - label_width
     row_gap = 8
     rows = []
-    for row_index, (category, count) in enumerate(
-        sorted(counts.items(), key=lambda category_count: -category_count[1])
-    ):
+    sorted_counts = sorted(counts.items(), key=lambda category_count: -category_count[1])
+    for row_index, (category, count) in enumerate(sorted_counts):
         y = row_index * (bar_height + row_gap)
         bar_width = max(2, int((count / max_count) * chart_width))
         color = _CATEGORY_COLORS.get(category, _DEFAULT_BAR_COLOR)
@@ -54,9 +53,13 @@ def _render_bar_chart_svg(counts: Counter[str], bar_height: int = 28, width: int
             f'font-size="13" fill="currentColor">{count}</text>'
         )
     svg_height = len(counts) * (bar_height + row_gap)
+    accessible_summary = ", ".join(
+        f"{category} {count}" for category, count in sorted_counts
+    )
     return (
         f'<svg viewBox="0 0 {width} {svg_height}" width="100%" '
-        f'style="max-width:{width}px" role="img" aria-label="Category breakdown">'
+        f'style="max-width:{width}px" role="img" '
+        f'aria-label="Category breakdown: {accessible_summary}">'
         + "".join(rows)
         + "</svg>"
     )

@@ -35,6 +35,7 @@ def test_render_report_includes_category_breakdown(triage_record):
     html = render_report([triage_record])
 
     assert "flake" in html
+    assert 'aria-label="Category breakdown: flake 1"' in html
 
 
 def test_render_report_includes_issue_link_when_present(triage_record):
