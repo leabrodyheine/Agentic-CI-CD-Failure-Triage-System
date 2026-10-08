@@ -5,6 +5,7 @@ def test_render_report_handles_empty_records():
     html = render_report([])
 
     assert "<html" in html
+    assert '<meta name="viewport" content="width=device-width">' in html
     assert "No triage records yet." in html
     assert "Total triaged</div>" in html or "Total triaged" in html
 
