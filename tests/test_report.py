@@ -25,6 +25,12 @@ def test_render_report_scopes_table_headers_to_columns(triage_record):
     assert html.count('<th scope="col">') == 6
 
 
+def test_render_report_scopes_repository_cells_to_rows(triage_record):
+    html = render_report([triage_record])
+
+    assert f'<th scope="row">{triage_record.run.repo}</th>' in html
+
+
 def test_render_report_labels_records_table(triage_record):
     html = render_report([triage_record])
 

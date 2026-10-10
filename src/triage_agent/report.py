@@ -94,7 +94,7 @@ def _render_table_rows(records: list[TriageRecord]) -> str:
         rows.append(
             "<tr>"
             f"<td>{_escape(record.triaged_at.isoformat(timespec='seconds'))}</td>"
-            f"<td>{_escape(record.run.repo)}</td>"
+            f'<th scope="row">{_escape(record.run.repo)}</th>'
             f"<td>{_escape(record.run.workflow_name)} / {_escape(record.run.job_name)}</td>"
             f"<td>{_escape(record.classification.category.value)}</td>"
             f"<td>{record.classification.confidence:.0%}</td>"
@@ -149,6 +149,7 @@ def render_report(records: list[TriageRecord]) -> str:
   th, td {{ text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #e5e7eb; }}
   th {{ font-size: 0.85rem; text-transform: uppercase; opacity: 0.7; }}
   td {{ font-size: 0.9rem; }}
+  tbody th {{ font-size: 0.9rem; font-weight: 400; text-transform: none; opacity: 1; }}
   section {{ margin-bottom: 2rem; }}
 </style>
 </head>
